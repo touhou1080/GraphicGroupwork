@@ -9,7 +9,8 @@ struct Contact {
     std::size_t bodyA = 0;
     std::size_t bodyB = 0;
     Vec2 normal{0.0f, 1.0f};
-    Vec2 point{0.0f, 0.0f};
+    Vec2 points[2]{{0.0f, 0.0f}, {0.0f, 0.0f}};
+    int pointCount = 0;
     float penetration = 0.0f;
 };
 

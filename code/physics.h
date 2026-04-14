@@ -42,7 +42,13 @@ struct RigidBody2D {
     float invInertia = 1.0f;
 
     float restitution = 0.25f;
+    float staticFriction = 0.7f;
+    float dynamicFriction = 0.5f;
     bool isStatic = false;
+
+    // Sleep state to suppress jitter when the body has effectively come to rest.
+    bool isSleeping = false;
+    float sleepTimer = 0.0f;
 };
 
 class PhysicsSystem {
@@ -53,4 +59,5 @@ class PhysicsSystem {
     void applyGlobalForces(std::vector<RigidBody2D>& bodies) const;
     void integrateVelocities(std::vector<RigidBody2D>& bodies, float dt) const;
     void integratePositions(std::vector<RigidBody2D>& bodies, float dt) const;
+    void updateSleepStates(std::vector<RigidBody2D>& bodies, float dt) const;
 };

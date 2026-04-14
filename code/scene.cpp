@@ -18,6 +18,8 @@ RigidBody2D makeBird() {
     bird.inertia = 0.5f * bird.mass * bird.shape.radius * bird.shape.radius;
     bird.invInertia = 1.0f / bird.inertia;
     bird.restitution = 0.3f;
+    bird.staticFriction = 0.45f;
+    bird.dynamicFriction = 0.35f;
     bird.isStatic = false;
     return bird;
 }
@@ -31,7 +33,9 @@ RigidBody2D makeBrick(const Vec2& position) {
     brick.invMass = 1.0f / brick.mass;
     brick.inertia = boxInertia(brick.mass, brick.shape.halfExtents);
     brick.invInertia = 1.0f / brick.inertia;
-    brick.restitution = 0.2f;
+    brick.restitution = 0.05f;
+    brick.staticFriction = 0.8f;
+    brick.dynamicFriction = 0.62f;
     brick.isStatic = false;
     return brick;
 }
@@ -46,6 +50,8 @@ RigidBody2D makeGround() {
     ground.inertia = 0.0f;
     ground.invInertia = 0.0f;
     ground.restitution = 0.2f;
+    ground.staticFriction = 0.95f;
+    ground.dynamicFriction = 0.8f;
     ground.isStatic = true;
     return ground;
 }
