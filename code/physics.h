@@ -44,6 +44,7 @@ struct RigidBody2D {
     float restitution = 0.25f;
     float staticFriction = 0.7f;
     float dynamicFriction = 0.5f;
+    bool affectedByGravity = true;
     bool isStatic = false;
 
     // Sleep state to suppress jitter when the body has effectively come to rest.

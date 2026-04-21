@@ -46,7 +46,7 @@ void PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt) const {
 
 void PhysicsSystem::applyGlobalForces(std::vector<RigidBody2D>& bodies) const {
     for (RigidBody2D& body : bodies) {
-        if (body.isStatic || body.isSleeping) {
+        if (body.isStatic || body.isSleeping || !body.affectedByGravity) {
             continue;
         }
         body.accumulatedForce += kGravity * body.mass;

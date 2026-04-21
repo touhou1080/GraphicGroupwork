@@ -4,6 +4,12 @@
 
 #include "physics.h"
 
+enum class GameState {
+    Ready,
+    Dragging,
+    Launched
+};
+
 class Scene {
   public:
     Scene();
@@ -16,8 +22,21 @@ class Scene {
     bool isPaused() const;
     void setPaused(bool paused);
     void togglePause();
+    
+    //getter and setter
+    bool isDragging() const;
+    void setDragging(bool dragging);
+
+    Vec2 getBirdStartPosition() const;
+    void setBirdStartPosition(const Vec2& position);
+
+    GameState getGameState() const;
+    void setGameState(GameState state);
 
   private:
     std::vector<RigidBody2D> bodies_;
     bool paused_ = false;
+    bool isDragging_ = false;
+    Vec2 birdStartPosition_{-6.0f, -1.5f};
+    GameState gameState_ = GameState::Ready;
 };

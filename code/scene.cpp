@@ -8,11 +8,11 @@ float boxInertia(float mass, const Vec2& halfExtents) {
     return mass * (width * width + height * height) / 12.0f;
 }
 
-RigidBody2D makeBird() {
+RigidBody2D makeBird(const Vec2& position) {
     RigidBody2D bird;
     bird.shape.type = ShapeType::Circle;
     bird.shape.radius = 0.35f;
-    bird.position = Vec2{-6.0f, -1.5f};
+    bird.position = position;
     bird.mass = 1.0f;
     bird.invMass = 1.0f / bird.mass;
     bird.inertia = 0.5f * bird.mass * bird.shape.radius * bird.shape.radius;
@@ -20,6 +20,7 @@ RigidBody2D makeBird() {
     bird.restitution = 0.3f;
     bird.staticFriction = 0.45f;
     bird.dynamicFriction = 0.35f;
+    bird.affectedByGravity = false;
     bird.isStatic = false;
     return bird;
 }
@@ -61,15 +62,18 @@ Scene::Scene() { reset(); }
 
 void Scene::reset() {
     paused_ = false;
+    isDragging_ = false;
+    gameState_ = GameState::Ready;
     bodies_.clear();
-    bodies_.push_back(makeBird());
+    bodies_.push_back(makeBird(birdStartPosition_));
+    birdStartPosition_ = bodies_.front().position;
     bodies_.push_back(makeGround());
 
     // A small stack/tower target for bird impacts.
-    bodies_.push_back(makeBrick(Vec2{4.8f, -3.3f}));
-    bodies_.push_back(makeBrick(Vec2{5.95f, -3.3f}));
-    bodies_.push_back(makeBrick(Vec2{5.4f, -2.75f}));
-    bodies_.push_back(makeBrick(Vec2{5.4f, -2.2f}));
+    bodies_.push_back(makeBrick(Vec2{4.8f, 3.3f}));
+    bodies_.push_back(makeBrick(Vec2{5.95f, 3.3f}));
+    bodies_.push_back(makeBrick(Vec2{5.4f, 2.75f}));
+    bodies_.push_back(makeBrick(Vec2{5.4f, 2.2f}));
 }
 
 std::vector<RigidBody2D>& Scene::getBodies() { return bodies_; }
@@ -81,3 +85,16 @@ bool Scene::isPaused() const { return paused_; }
 void Scene::setPaused(bool paused) { paused_ = paused; }
 
 void Scene::togglePause() { paused_ = !paused_; }
+
+
+bool Scene::isDragging() const { return isDragging_; }
+
+void Scene::setDragging(bool dragging) { isDragging_ = dragging; }
+
+Vec2 Scene::getBirdStartPosition() const { return birdStartPosition_; }
+
+void Scene::setBirdStartPosition(const Vec2& position) { birdStartPosition_ = position; }
+
+GameState Scene::getGameState() const { return gameState_; }
+
+void Scene::setGameState(GameState state) { gameState_ = state; }

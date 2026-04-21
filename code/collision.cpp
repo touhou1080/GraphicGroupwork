@@ -135,6 +135,93 @@ bool detectCircleBox(const RigidBody2D& circle, const RigidBody2D& box, Contact&
     out.pointCount = 1;
     return true;
 }
+/*
+bool detectBoxBoxSAT(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
+    const Vec2 axes[4] = {boxAxisX(a), boxAxisY(a), boxAxisX(b), boxAxisY(b)};
+    const Vec2 aAxes[2] = {boxAxisX(a), boxAxisY(a)};
+    const Vec2 bAxes[2] = {boxAxisX(b), boxAxisY(b)};
+    const Vec2 t = b.position - a.position;
+
+    float minOverlap = 1e30f;
+    Vec2 bestAxis = Vec2{1.0f, 0.0f};
+
+    for (const Vec2& axis : axes) {
+        const float dist = std::abs(dot(t, axis));
+        const float projA =
+            a.shape.halfExtents.x * std::abs(dot(aAxes[0], axis)) +
+            a.shape.halfExtents.y * std::abs(dot(aAxes[1], axis));
+        const float projB =
+            b.shape.halfExtents.x * std::abs(dot(bAxes[0], axis)) +
+            b.shape.halfExtents.y * std::abs(dot(bAxes[1], axis));
+
+        const float overlap = projA + projB - dist;
+        if (overlap <= 0.0f) {
+            return false;
+        }
+
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+            bestAxis = (dot(t, axis) >= 0.0f) ? axis : axis * -1.0f;
+        }
+    }
+
+    out.normal = normalized(bestAxis);
+    out.penetration = minOverlap;
+
+    std::vector<Vec2> candidates;
+    candidates.reserve(8);
+
+    const auto vertsA = getBoxVertices(a);
+    const auto vertsB = getBoxVertices(b);
+
+    for (const Vec2& v : vertsA) {
+        if (pointInsideBox(v, b)) {
+            candidates.push_back(v);
+        }
+    }
+    for (const Vec2& v : vertsB) {
+        if (pointInsideBox(v, a)) {
+            candidates.push_back(v);
+        }
+    }
+
+    if (candidates.empty()) {
+        const Vec2 supportA = supportPointBox(a, out.normal);
+        const Vec2 supportB = supportPointBox(b, out.normal * -1.0f);
+        out.points[0] = (supportA + supportB) * 0.5f;
+        out.pointCount = 1;
+        return true;
+    }
+
+    const Vec2 tangent{-out.normal.y, out.normal.x};
+    float minProj = 1e30f;
+    float maxProj = -1e30f;
+    Vec2 minPoint = candidates[0];
+    Vec2 maxPoint = candidates[0];
+
+    for (const Vec2& p : candidates) {
+        const float proj = dot(p, tangent);
+        if (proj < minProj) {
+            minProj = proj;
+            minPoint = p;
+        }
+        if (proj > maxProj) {
+            maxProj = proj;
+            maxPoint = p;
+        }
+    }
+
+    out.points[0] = minPoint;
+    out.pointCount = 1;
+
+    if (lengthSquared(maxPoint - minPoint) > 1e-4f) {
+        out.points[1] = maxPoint;
+        out.pointCount = 2;
+    }
+
+    return true;
+}
+*/
 
 bool detectBoxBoxSAT(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
     const Vec2 axes[4] = {boxAxisX(a), boxAxisY(a), boxAxisX(b), boxAxisY(b)};
@@ -365,11 +452,12 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
                 if (normalMass > kEpsilon) {
                     float bias = 0.0f;
                     if (contact.penetration > kPositionSlop) {
-                        bias = 0.15f * (contact.penetration - kPositionSlop);
+                        const float pointShare = 1.0f / static_cast<float>(std::max(contact.pointCount, 1));
+                        bias = 0.15f * (contact.penetration - kPositionSlop) * pointShare;
+                        //bias = 0.15f * (contact.penetration - kPositionSlop);
                     }
 
-                    float lambda = -(velAlongNormal + bias + restitution * std::min(velAlongNormal, 0.0f)) /
-                                   normalMass;
+                    float lambda = -(velAlongNormal + bias + restitution * std::min(velAlongNormal, 0.0f)) / normalMass;
                     const float oldImpulse = cp.normalImpulse;
                     cp.normalImpulse = std::max(oldImpulse + lambda, 0.0f);
                     lambda = cp.normalImpulse - oldImpulse;
