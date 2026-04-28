@@ -11,4 +11,5 @@ class InputController {
     bool previousResetPressed_ = false;
     bool previousPausePressed_ = false;
     bool previousMousePressed_ = false;
+    bool previousNextScenePressed_ = false;
 };

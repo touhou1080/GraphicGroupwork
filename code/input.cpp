@@ -54,6 +54,12 @@ void InputController::fixedUpdate(GLFWwindow* window, Scene& scene) {
     }
     previousPausePressed_ = pausePressed;
 
+    const bool nextScenePressed = glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS;
+    if (nextScenePressed && !previousNextScenePressed_) {
+        scene.nextScene();
+    }
+    previousNextScenePressed_ = nextScenePressed;
+
     std::vector<RigidBody2D>& bodies = scene.getBodies();
     if (bodies.empty()) {
         previousMousePressed_ = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;

@@ -10,11 +10,19 @@ enum class GameState {
     Launched
 };
 
+enum class SceneType {
+    Fortress,
+    Pyramid,
+    Count
+};
+
 class Scene {
   public:
     Scene();
 
     void reset();
+    void nextScene();
+    SceneType getCurrentSceneType() const;
 
     std::vector<RigidBody2D>& getBodies();
     const std::vector<RigidBody2D>& getBodies() const;
@@ -39,4 +47,5 @@ class Scene {
     bool isDragging_ = false;
     Vec2 birdStartPosition_{-6.0f, -1.5f};
     GameState gameState_ = GameState::Ready;
+    SceneType currentScene_ = SceneType::Fortress;
 };

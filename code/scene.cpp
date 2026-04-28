@@ -59,6 +59,82 @@ void addWoodBlock(std::vector<RigidBody2D>& bodies,
     bodies.push_back(makeWoodBlock(Vec2{x, y}, Vec2{halfWidth, halfHeight}, angle));
 }
 
+void buildFortressScene(std::vector<RigidBody2D>& bodies) {
+    constexpr float groundTop = -3.6f;
+    constexpr float beamHalfHeight = 0.18f;
+    constexpr float shortBeamHalfWidth = 0.55f;
+    constexpr float longBeamHalfWidth = 0.95f;
+    constexpr float postHalfWidth = 0.16f;
+    constexpr float lowerPostHalfHeight = 0.72f;
+    constexpr float upperPostHalfHeight = 0.60f;
+    constexpr float crateHalfExtent = 0.30f;
+    constexpr float capPostHalfHeight = 0.34f;
+
+    const float foundationY = groundTop + beamHalfHeight;
+    const float lowerPostY = foundationY + beamHalfHeight + lowerPostHalfHeight;
+    const float midBeamY = lowerPostY + lowerPostHalfHeight + beamHalfHeight;
+    const float upperPostY = midBeamY + beamHalfHeight + upperPostHalfHeight;
+    const float upperBeamY = upperPostY + upperPostHalfHeight + beamHalfHeight;
+    const float crateY = upperBeamY + beamHalfHeight + crateHalfExtent;
+    const float capBeamY = crateY + crateHalfExtent + beamHalfHeight;
+    const float capPostY = capBeamY + beamHalfHeight + capPostHalfHeight;
+
+    for (float x : {4.00f, 5.15f, 6.30f, 7.45f, 8.60f}) {
+        addWoodBlock(bodies, x, foundationY, shortBeamHalfWidth, beamHalfHeight);
+    }
+
+    for (float x : {3.75f, 4.45f, 5.45f, 6.95f, 7.95f, 8.65f}) {
+        addWoodBlock(bodies, x, lowerPostY, postHalfWidth, lowerPostHalfHeight);
+    }
+
+    addWoodBlock(bodies, 4.10f, midBeamY, shortBeamHalfWidth, beamHalfHeight);
+    addWoodBlock(bodies, 6.20f, midBeamY, longBeamHalfWidth, beamHalfHeight);
+    addWoodBlock(bodies, 8.30f, midBeamY, shortBeamHalfWidth, beamHalfHeight);
+
+    for (float x : {3.85f, 4.35f, 5.55f, 6.85f, 8.05f, 8.55f}) {
+        addWoodBlock(bodies, x, upperPostY, postHalfWidth, upperPostHalfHeight);
+    }
+
+    addWoodBlock(bodies, 4.10f, upperBeamY, shortBeamHalfWidth, beamHalfHeight);
+    addWoodBlock(bodies, 6.20f, upperBeamY, longBeamHalfWidth, beamHalfHeight);
+    addWoodBlock(bodies, 8.30f, upperBeamY, shortBeamHalfWidth, beamHalfHeight);
+
+    addWoodBlock(bodies, 4.10f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
+    addWoodBlock(bodies, 5.95f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
+    addWoodBlock(bodies, 6.45f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
+    addWoodBlock(bodies, 8.30f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
+
+    addWoodBlock(bodies, 5.15f, crateY, crateHalfExtent, crateHalfExtent);
+    addWoodBlock(bodies, 7.25f, crateY, crateHalfExtent, crateHalfExtent);
+    addWoodBlock(bodies, 6.20f, capBeamY, longBeamHalfWidth, beamHalfHeight);
+    addWoodBlock(bodies, 5.45f, capPostY, postHalfWidth, capPostHalfHeight);
+    addWoodBlock(bodies, 6.20f, capPostY, postHalfWidth, capPostHalfHeight);
+    addWoodBlock(bodies, 6.95f, capPostY, postHalfWidth, capPostHalfHeight);
+
+    addWoodBlock(bodies, 3.25f, -2.82f, 0.70f, 0.14f, 0.42f);
+    addWoodBlock(bodies, 9.10f, -2.82f, 0.70f, 0.14f, -0.42f);
+}
+
+void buildPyramidScene(std::vector<RigidBody2D>& bodies) {
+    // Stable 4-3-2-1 cube pyramid. Each upper cube straddles the seam
+    // between two lower cubes, so contacts are vertical and the stack
+    // self-supports under gravity.
+    constexpr float groundTop = -3.6f;
+    constexpr float halfExtent = 0.30f;
+    constexpr float spacing = 2.0f * halfExtent;
+    constexpr float centerX = 6.0f;
+    constexpr int rows = 4;
+
+    for (int row = 0; row < rows; ++row) {
+        const int count = rows - row;
+        const float y = groundTop + halfExtent + row * spacing;
+        for (int i = 0; i < count; ++i) {
+            const float x = centerX + (i - (count - 1) * 0.5f) * spacing;
+            addWoodBlock(bodies, x, y, halfExtent, halfExtent);
+        }
+    }
+}
+
 RigidBody2D makeGround() {
     RigidBody2D ground;
     ground.shape.type = ShapeType::Box;
@@ -87,68 +163,26 @@ void Scene::reset() {
     birdStartPosition_ = bodies_.front().position;
     bodies_.push_back(makeGround());
 
-    constexpr float groundTop = -3.6f;
-    constexpr float beamHalfHeight = 0.18f;
-    constexpr float shortBeamHalfWidth = 0.55f;
-    constexpr float longBeamHalfWidth = 0.95f;
-    constexpr float postHalfWidth = 0.16f;
-    constexpr float lowerPostHalfHeight = 0.72f;
-    constexpr float upperPostHalfHeight = 0.60f;
-    constexpr float crateHalfExtent = 0.30f;
-    constexpr float capPostHalfHeight = 0.34f;
-
-    const float foundationY = groundTop + beamHalfHeight;
-    const float lowerPostY = foundationY + beamHalfHeight + lowerPostHalfHeight;
-    const float midBeamY = lowerPostY + lowerPostHalfHeight + beamHalfHeight;
-    const float upperPostY = midBeamY + beamHalfHeight + upperPostHalfHeight;
-    const float upperBeamY = upperPostY + upperPostHalfHeight + beamHalfHeight;
-    const float crateY = upperBeamY + beamHalfHeight + crateHalfExtent;
-    const float capBeamY = crateY + crateHalfExtent + beamHalfHeight;
-    const float capPostY = capBeamY + beamHalfHeight + capPostHalfHeight;
-
-    // Foundation row
-    for (float x : {4.00f, 5.15f, 6.30f, 7.45f, 8.60f}) {
-        addWoodBlock(bodies_, x, foundationY, shortBeamHalfWidth, beamHalfHeight);
+    switch (currentScene_) {
+        case SceneType::Fortress:
+            buildFortressScene(bodies_);
+            break;
+        case SceneType::Pyramid:
+            buildPyramidScene(bodies_);
+            break;
+        case SceneType::Count:
+            break;
     }
-
-    // Lower floor posts with a central gate opening.
-    for (float x : {3.75f, 4.45f, 5.45f, 6.95f, 7.95f, 8.65f}) {
-        addWoodBlock(bodies_, x, lowerPostY, postHalfWidth, lowerPostHalfHeight);
-    }
-
-    // Mid-level beams: left tower, gate lintel, right tower.
-    addWoodBlock(bodies_, 4.10f, midBeamY, shortBeamHalfWidth, beamHalfHeight);
-    addWoodBlock(bodies_, 6.20f, midBeamY, longBeamHalfWidth, beamHalfHeight);
-    addWoodBlock(bodies_, 8.30f, midBeamY, shortBeamHalfWidth, beamHalfHeight);
-
-    // Upper floor posts.
-    for (float x : {3.85f, 4.35f, 5.55f, 6.85f, 8.05f, 8.55f}) {
-        addWoodBlock(bodies_, x, upperPostY, postHalfWidth, upperPostHalfHeight);
-    }
-
-    // Upper deck beams.
-    addWoodBlock(bodies_, 4.10f, upperBeamY, shortBeamHalfWidth, beamHalfHeight);
-    addWoodBlock(bodies_, 6.20f, upperBeamY, longBeamHalfWidth, beamHalfHeight);
-    addWoodBlock(bodies_, 8.30f, upperBeamY, shortBeamHalfWidth, beamHalfHeight);
-
-    // Interior crates create weak points and a more layered collapse.
-    addWoodBlock(bodies_, 4.10f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
-    addWoodBlock(bodies_, 5.95f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
-    addWoodBlock(bodies_, 6.45f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
-    addWoodBlock(bodies_, 8.30f, foundationY + beamHalfHeight + crateHalfExtent, crateHalfExtent, crateHalfExtent);
-
-    // Roof line and top parapet.
-    addWoodBlock(bodies_, 5.15f, crateY, crateHalfExtent, crateHalfExtent);
-    addWoodBlock(bodies_, 7.25f, crateY, crateHalfExtent, crateHalfExtent);
-    addWoodBlock(bodies_, 6.20f, capBeamY, longBeamHalfWidth, beamHalfHeight);
-    addWoodBlock(bodies_, 5.45f, capPostY, postHalfWidth, capPostHalfHeight);
-    addWoodBlock(bodies_, 6.20f, capPostY, postHalfWidth, capPostHalfHeight);
-    addWoodBlock(bodies_, 6.95f, capPostY, postHalfWidth, capPostHalfHeight);
-
-    // Outer braces help the silhouette read as a heavier wooden fortress.
-    addWoodBlock(bodies_, 3.25f, -2.82f, 0.70f, 0.14f, 0.42f);
-    addWoodBlock(bodies_, 9.10f, -2.82f, 0.70f, 0.14f, -0.42f);
 }
+
+void Scene::nextScene() {
+    const int next = (static_cast<int>(currentScene_) + 1) %
+                     static_cast<int>(SceneType::Count);
+    currentScene_ = static_cast<SceneType>(next);
+    reset();
+}
+
+SceneType Scene::getCurrentSceneType() const { return currentScene_; }
 
 std::vector<RigidBody2D>& Scene::getBodies() { return bodies_; }
 
