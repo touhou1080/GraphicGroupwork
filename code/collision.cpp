@@ -333,6 +333,10 @@ struct SolverContactPoint {
     Vec2 point{0.0f, 0.0f};
     float normalImpulse = 0.0f;
     float tangentImpulse = 0.0f;
+    // Target separating speed (= -restitution * initial velAlongNormal, clamped to >= 0).
+    // Computed ONCE before the iteration loop using initial velocities so
+    // restitution does not get cancelled out in later iterations.
+    float velocityBias = 0.0f;
 };
 
 struct SolverContact {
@@ -419,6 +423,26 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
         }
     }
 
+    // Pre-pass: compute the restitution velocity bias from the initial relative
+    // velocity at each contact point. Doing this once (not per iteration) is what
+    // makes "bouncy" bodies actually bounce — otherwise iteration 2 sees the
+    // post-impact separating velocity and reels the impulse back, killing the bounce.
+    constexpr float kRestitutionThreshold = 0.5f;
+    for (SolverContact& contact : solverContacts) {
+        const RigidBody2D& a = bodies[contact.bodyA];
+        const RigidBody2D& b = bodies[contact.bodyB];
+        const float restitution = std::max(a.restitution, b.restitution);
+        for (int p = 0; p < contact.pointCount; ++p) {
+            SolverContactPoint& cp = contact.points[p];
+            const Vec2 ra = cp.point - a.position;
+            const Vec2 rb = cp.point - b.position;
+            const Vec2 va = a.velocity + cross(a.angularVelocity, ra);
+            const Vec2 vb = b.velocity + cross(b.angularVelocity, rb);
+            const float vn = dot(vb - va, contact.normal);
+            cp.velocityBias = (vn < -kRestitutionThreshold) ? -restitution * vn : 0.0f;
+        }
+    }
+
     for (int iter = 0; iter < kVelocityIterations; ++iter) {
         for (SolverContact& contact : solverContacts) {
             RigidBody2D& a = bodies[contact.bodyA];
@@ -428,7 +452,6 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
                 continue;
             }
 
-            const float restitution = std::min(a.restitution, b.restitution);
             const float muS = std::sqrt(a.staticFriction * b.staticFriction);
             const float muD = std::sqrt(a.dynamicFriction * b.dynamicFriction);
             const Vec2 tangentBase{-contact.normal.y, contact.normal.x};
@@ -457,7 +480,10 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
                         //bias = 0.15f * (contact.penetration - kPositionSlop);
                     }
 
-                    float lambda = -(velAlongNormal + bias + restitution * std::min(velAlongNormal, 0.0f)) / normalMass;
+                    // Drive the contact's normal velocity toward the precomputed
+                    // separation target (cp.velocityBias >= 0). For a fresh impact
+                    // the target is +restitution * incomingSpeed; otherwise it's 0.
+                    float lambda = -(velAlongNormal + bias - cp.velocityBias) / normalMass;
                     const float oldImpulse = cp.normalImpulse;
                     cp.normalImpulse = std::max(oldImpulse + lambda, 0.0f);
                     lambda = cp.normalImpulse - oldImpulse;

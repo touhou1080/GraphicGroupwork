@@ -91,6 +91,8 @@ void drawHUD(int framebufferWidth, int framebufferHeight) {
     y -= kLineHeight;
     drawText("N: NEXT SCENE", 4.0f * kPixel, y, kPixel);
     y -= kLineHeight;
+    drawText("B: NEXT BIRD", 4.0f * kPixel, y, kPixel);
+    y -= kLineHeight;
     drawText("R: RESET", 4.0f * kPixel, y, kPixel);
     y -= kLineHeight;
     drawText("P: PAUSE", 4.0f * kPixel, y, kPixel);
@@ -151,9 +153,14 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
     glClear(GL_COLOR_BUFFER_BIT);
 
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
+    const BirdType birdType = scene.getCurrentBirdType();
     for (const RigidBody2D& body : bodies) {
         if (body.shape.type == ShapeType::Circle) {
-            glColor3f(0.85f, 0.2f, 0.2f);
+            if (birdType == BirdType::Yellow) {
+                glColor3f(0.98f, 0.85f, 0.15f);
+            } else {
+                glColor3f(0.85f, 0.2f, 0.2f);
+            }
             drawCircle(body.position, body.shape.radius);
         } else {
             if (body.isStatic) {

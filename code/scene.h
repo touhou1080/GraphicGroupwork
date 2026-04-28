@@ -16,13 +16,21 @@ enum class SceneType {
     Count
 };
 
+enum class BirdType {
+    Red,
+    Yellow,
+    Count
+};
+
 class Scene {
   public:
     Scene();
 
     void reset();
     void nextScene();
+    void nextBird();
     SceneType getCurrentSceneType() const;
+    BirdType getCurrentBirdType() const;
 
     std::vector<RigidBody2D>& getBodies();
     const std::vector<RigidBody2D>& getBodies() const;
@@ -48,4 +56,5 @@ class Scene {
     Vec2 birdStartPosition_{-6.0f, -1.5f};
     GameState gameState_ = GameState::Ready;
     SceneType currentScene_ = SceneType::Fortress;
+    BirdType currentBird_ = BirdType::Red;
 };

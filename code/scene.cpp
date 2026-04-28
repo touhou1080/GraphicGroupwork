@@ -10,7 +10,7 @@ float boxInertia(float mass, const Vec2& halfExtents) {
     return mass * (width * width + height * height) / 12.0f;
 }
 
-RigidBody2D makeBird(const Vec2& position) {
+RigidBody2D makeBird(const Vec2& position, BirdType type) {
     RigidBody2D bird;
     bird.shape.type = ShapeType::Circle;
     bird.shape.radius = 0.35f;
@@ -19,11 +19,20 @@ RigidBody2D makeBird(const Vec2& position) {
     bird.invMass = 1.0f / bird.mass;
     bird.inertia = 0.5f * bird.mass * bird.shape.radius * bird.shape.radius;
     bird.invInertia = 1.0f / bird.inertia;
-    bird.restitution = 0.3f;
-    bird.staticFriction = 0.45f;
-    bird.dynamicFriction = 0.35f;
     bird.affectedByGravity = false;
     bird.isStatic = false;
+
+    if (type == BirdType::Yellow) {
+        // Rubber-ball yellow bird: very bouncy, slick surface so it skips off blocks.
+        bird.restitution = 0.85f;
+        bird.staticFriction = 0.20f;
+        bird.dynamicFriction = 0.15f;
+    } else {
+        // Heavy red bird: minimal bounce, grippy.
+        bird.restitution = 0.30f;
+        bird.staticFriction = 0.45f;
+        bird.dynamicFriction = 0.35f;
+    }
     return bird;
 }
 
@@ -159,7 +168,7 @@ void Scene::reset() {
     isDragging_ = false;
     gameState_ = GameState::Ready;
     bodies_.clear();
-    bodies_.push_back(makeBird(birdStartPosition_));
+    bodies_.push_back(makeBird(birdStartPosition_, currentBird_));
     birdStartPosition_ = bodies_.front().position;
     bodies_.push_back(makeGround());
 
@@ -183,6 +192,15 @@ void Scene::nextScene() {
 }
 
 SceneType Scene::getCurrentSceneType() const { return currentScene_; }
+
+void Scene::nextBird() {
+    const int next = (static_cast<int>(currentBird_) + 1) %
+                     static_cast<int>(BirdType::Count);
+    currentBird_ = static_cast<BirdType>(next);
+    reset();
+}
+
+BirdType Scene::getCurrentBirdType() const { return currentBird_; }
 
 std::vector<RigidBody2D>& Scene::getBodies() { return bodies_; }
 
