@@ -24,7 +24,7 @@ RigidBody2D makeBird(const Vec2& position, BirdType type) {
 
     if (type == BirdType::Yellow) {
         // Rubber-ball yellow bird: very bouncy, slick surface so it skips off blocks.
-        bird.restitution = 0.85f;
+        bird.restitution = 0.55f;
         bird.staticFriction = 0.20f;
         bird.dynamicFriction = 0.15f;
     } else {
