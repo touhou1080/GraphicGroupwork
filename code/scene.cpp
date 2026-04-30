@@ -15,18 +15,27 @@ float boxInertia(float mass, const Vec2& halfExtents) {
 float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
 
 void applyBirdTypeProperties(RigidBody2D& bird, BirdType type) {
+    constexpr float kRedBirdMass = 1.0f;
+    constexpr float kYellowBirdMass = 3.0f;
+
     bird.customTag = static_cast<int>(type);
     if (type == BirdType::Yellow) {
+        bird.mass = kYellowBirdMass;
         // Rubber-ball yellow bird: bouncy, slick surface so it skips off blocks.
         bird.restitution = 0.55f;
         bird.staticFriction = 0.20f;
         bird.dynamicFriction = 0.15f;
     } else {
+        bird.mass = kRedBirdMass;
         // Heavy red bird: minimal bounce, grippy.
         bird.restitution = 0.30f;
         bird.staticFriction = 0.45f;
         bird.dynamicFriction = 0.35f;
     }
+
+    bird.invMass = 1.0f / bird.mass;
+    bird.inertia = 0.5f * bird.mass * bird.shape.radius * bird.shape.radius;
+    bird.invInertia = 1.0f / bird.inertia;
 }
 
 RigidBody2D makeBird(const Vec2& position, BirdType type) {
@@ -34,10 +43,6 @@ RigidBody2D makeBird(const Vec2& position, BirdType type) {
     bird.shape.type = ShapeType::Circle;
     bird.shape.radius = 0.35f;
     bird.position = position;
-    bird.mass = 1.0f;
-    bird.invMass = 1.0f / bird.mass;
-    bird.inertia = 0.5f * bird.mass * bird.shape.radius * bird.shape.radius;
-    bird.invInertia = 1.0f / bird.inertia;
     bird.affectedByGravity = false;
     bird.isStatic = false;
     applyBirdTypeProperties(bird, type);
@@ -315,8 +320,8 @@ void Scene::updateBirdTrajectory(const PhysicsStepResult& stepResult) {
         return;
     }
 
-    if (stepResult.activeBirdContact) {
-        appendBirdTrajectoryPoint(stepResult.activeBirdCenterAtContact);
+    if (stepResult.activeBirdImpact) {
+        appendBirdTrajectoryPoint(stepResult.activeBirdCenterAtImpact);
         birdTrajectoryRecording_ = false;
         return;
     }

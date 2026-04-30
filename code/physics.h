@@ -16,8 +16,8 @@ struct CachedContactImpulse {
 };
 
 struct PhysicsStepResult {
-    bool activeBirdContact = false;
-    Vec2 activeBirdCenterAtContact{0.0f, 0.0f};
+    bool activeBirdImpact = false;
+    Vec2 activeBirdCenterAtImpact{0.0f, 0.0f};
 };
 
 Vec2 operator+(const Vec2& a, const Vec2& b);
