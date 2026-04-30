@@ -398,6 +398,7 @@ bool detectPair(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
 
 struct SolverContactPoint {
     Vec2 point{0.0f, 0.0f};
+    Vec2 localPointA{0.0f, 0.0f};
     float normalImpulse = 0.0f;
     float tangentImpulse = 0.0f;
     // Target separating speed (= -restitution * initial velAlongNormal, clamped to >= 0).
@@ -423,6 +424,28 @@ void applyImpulseAtPoint(RigidBody2D& body, const Vec2& impulse, const Vec2& r) 
     body.angularVelocity += cross(r, impulse) * body.invInertia;
 }
 
+const CachedContactImpulse* findCachedImpulse(const std::vector<CachedContactImpulse>& cache,
+                                              std::size_t bodyA,
+                                              std::size_t bodyB,
+                                              const Vec2& localPointA) {
+    constexpr float kMatchDistanceSq = 0.04f * 0.04f;
+
+    const CachedContactImpulse* best = nullptr;
+    float bestDistanceSq = kMatchDistanceSq;
+    for (const CachedContactImpulse& cached : cache) {
+        if (cached.bodyA != bodyA || cached.bodyB != bodyB) {
+            continue;
+        }
+
+        const float distanceSq = lengthSquared(cached.localPointA - localPointA);
+        if (distanceSq <= bestDistanceSq) {
+            best = &cached;
+            bestDistanceSq = distanceSq;
+        }
+    }
+    return best;
+}
+
 }  // namespace
 
 void detectCollisions(const std::vector<RigidBody2D>& bodies, std::vector<Contact>& outContacts) {
@@ -444,11 +467,16 @@ void detectCollisions(const std::vector<RigidBody2D>& bodies, std::vector<Contac
     }
 }
 
-void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Contact>& contacts) {
+void resolveCollisions(std::vector<RigidBody2D>& bodies,
+                       const std::vector<Contact>& contacts,
+                       float dt,
+                       std::vector<CachedContactImpulse>& cache) {
     constexpr int kVelocityIterations = 8;
     constexpr float kPositionCorrectionPercent = 0.2f;
     constexpr float kPositionSlop = 0.01f;
     constexpr float kWakeSpeedSq = 0.02f * 0.02f;
+    constexpr float kBaumgarte = 0.08f;
+    constexpr float kMaxBias = 2.0f;
 
     std::vector<SolverContact> solverContacts;
     solverContacts.reserve(contacts.size());
@@ -465,7 +493,16 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
         sc.penetration = contact.penetration;
         sc.pointCount = contact.pointCount;
         for (int i = 0; i < contact.pointCount; ++i) {
-            sc.points[i].point = contact.points[i];
+            SolverContactPoint& cp = sc.points[i];
+            cp.point = contact.points[i];
+            cp.localPointA = inverseRotate(cp.point - bodies[contact.bodyA].position,
+                                           bodies[contact.bodyA].angle);
+
+            if (const CachedContactImpulse* cached =
+                    findCachedImpulse(cache, contact.bodyA, contact.bodyB, cp.localPointA)) {
+                cp.normalImpulse = cached->normalImpulse;
+                cp.tangentImpulse = cached->tangentImpulse;
+            }
         }
         solverContacts.push_back(sc);
     }
@@ -510,6 +547,25 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
         }
     }
 
+    for (SolverContact& contact : solverContacts) {
+        RigidBody2D& a = bodies[contact.bodyA];
+        RigidBody2D& b = bodies[contact.bodyB];
+
+        if (a.isStatic && b.isStatic) {
+            continue;
+        }
+
+        const Vec2 tangent{-contact.normal.y, contact.normal.x};
+        for (int p = 0; p < contact.pointCount; ++p) {
+            SolverContactPoint& cp = contact.points[p];
+            const Vec2 ra = cp.point - a.position;
+            const Vec2 rb = cp.point - b.position;
+            const Vec2 impulse = contact.normal * cp.normalImpulse + tangent * cp.tangentImpulse;
+            applyImpulseAtPoint(a, impulse * -1.0f, ra);
+            applyImpulseAtPoint(b, impulse, rb);
+        }
+    }
+
     for (int iter = 0; iter < kVelocityIterations; ++iter) {
         for (SolverContact& contact : solverContacts) {
             RigidBody2D& a = bodies[contact.bodyA];
@@ -543,14 +599,17 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
                     float bias = 0.0f;
                     if (contact.penetration > kPositionSlop) {
                         const float pointShare = 1.0f / static_cast<float>(std::max(contact.pointCount, 1));
-                        bias = 0.15f * (contact.penetration - kPositionSlop) * pointShare;
+                        const float safeDt = std::max(dt, kEpsilon);
+                        bias = (kBaumgarte / safeDt) * (contact.penetration - kPositionSlop) * pointShare;
+                        bias = std::min(bias, kMaxBias);
+                        //bias = 0.15f * (contact.penetration - kPositionSlop) * pointShare;
                         //bias = 0.15f * (contact.penetration - kPositionSlop);
                     }
 
                     // Drive the contact's normal velocity toward the precomputed
                     // separation target (cp.velocityBias >= 0). For a fresh impact
                     // the target is +restitution * incomingSpeed; otherwise it's 0.
-                    float lambda = -(velAlongNormal + bias - cp.velocityBias) / normalMass;
+                    float lambda = -(velAlongNormal - bias - cp.velocityBias) / normalMass;
                     const float oldImpulse = cp.normalImpulse;
                     cp.normalImpulse = std::max(oldImpulse + lambda, 0.0f);
                     lambda = cp.normalImpulse - oldImpulse;
@@ -612,6 +671,20 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Conta
         }
         if (!b.isStatic) {
             b.position += correction * b.invMass;
+        }
+    }
+
+    cache.clear();
+    for (const SolverContact& contact : solverContacts) {
+        for (int p = 0; p < contact.pointCount; ++p) {
+            const SolverContactPoint& cp = contact.points[p];
+            CachedContactImpulse cached;
+            cached.bodyA = contact.bodyA;
+            cached.bodyB = contact.bodyB;
+            cached.localPointA = cp.localPointA;
+            cached.normalImpulse = cp.normalImpulse;
+            cached.tangentImpulse = cp.tangentImpulse;
+            cache.push_back(cached);
         }
     }
 }

@@ -26,19 +26,12 @@ Vec2& operator-=(Vec2& a, const Vec2& b) {
 }
 
 void PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt) const {
-    constexpr int kSolverIterations = 8;
-
     applyGlobalForces(bodies);
     integrateVelocities(bodies, dt);
 
-    for (int i = 0; i < kSolverIterations; ++i) {
-        std::vector<Contact> contacts;
-        detectCollisions(bodies, contacts);
-        if (contacts.empty()) {
-            break;
-        }
-        resolveCollisions(bodies, contacts);
-    }
+    std::vector<Contact> contacts;
+    detectCollisions(bodies, contacts);
+    resolveCollisions(bodies, contacts, dt, contactCache_);
 
     integratePositions(bodies, dt);
     updateSleepStates(bodies, dt);

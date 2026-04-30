@@ -1,10 +1,18 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 struct Vec2 {
     float x = 0.0f;
     float y = 0.0f;
+};
+struct CachedContactImpulse {
+    std::size_t bodyA = 0;
+    std::size_t bodyB = 0;
+    Vec2 localPointA{0.0f, 0.0f};
+    float normalImpulse = 0.0f;
+    float tangentImpulse = 0.0f;
 };
 
 Vec2 operator+(const Vec2& a, const Vec2& b);
@@ -61,4 +69,6 @@ class PhysicsSystem {
     void integrateVelocities(std::vector<RigidBody2D>& bodies, float dt) const;
     void integratePositions(std::vector<RigidBody2D>& bodies, float dt) const;
     void updateSleepStates(std::vector<RigidBody2D>& bodies, float dt) const;
+
+    mutable std::vector<CachedContactImpulse> contactCache_;
 };

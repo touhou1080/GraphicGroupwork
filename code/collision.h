@@ -15,4 +15,6 @@ struct Contact {
 };
 
 void detectCollisions(const std::vector<RigidBody2D>& bodies, std::vector<Contact>& outContacts);
-void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Contact>& contacts);
+void resolveCollisions(std::vector<RigidBody2D>& bodies, const std::vector<Contact>& contacts,
+                       float dt,
+                       std::vector<CachedContactImpulse>& cache);
