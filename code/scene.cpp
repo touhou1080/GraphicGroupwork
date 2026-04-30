@@ -219,7 +219,7 @@ void Scene::pruneStaleBirds(float dt) {
     //     physics sleep threshold (0.06), so a bird only counts as quiet when
     //     it is essentially frozen, not just rolling slowly.
     //   - Its position has crossed the visible-world margin (flew off-screen).
-    constexpr float kQuietSpeed = 0.02f;
+    constexpr float kQuietSpeed = 0.05f;
     constexpr float kQuietSpeedSq = kQuietSpeed * kQuietSpeed;
     constexpr float kBirdLifetime = 1.0f;
     constexpr float kBoundaryX = 15.0f;

@@ -11,10 +11,15 @@ namespace {
 constexpr float kWorldHalfHeight = 6.0f;
 constexpr float kLaunchSpeedScale = 6.5f;
 constexpr float kMaxDragDistance = 2.2f;
+constexpr float kBirdStartPositionToleranceSq = 1e-4f;
 
 float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
 
 float length(const Vec2& v) { return std::sqrt(lengthSquared(v)); }
+
+bool isBirdAtStartPosition(const RigidBody2D& bird, const Vec2& startPosition) {
+    return lengthSquared(bird.position - startPosition) <= kBirdStartPositionToleranceSq;
+}
 
 Vec2 screenToWorld(GLFWwindow* window, double mouseX, double mouseY) {
     int width = 1;
@@ -60,14 +65,9 @@ void InputController::fixedUpdate(GLFWwindow* window, Scene& scene) {
     }
     previousNextScenePressed_ = nextScenePressed;
 
-    const bool nextBirdPressed = glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS;
-    if (nextBirdPressed && !previousNextBirdPressed_) {
-        scene.nextBird();
-    }
-    previousNextBirdPressed_ = nextBirdPressed;
-
     std::vector<RigidBody2D>& bodies = scene.getBodies();
     if (bodies.empty()) {
+        previousNextBirdPressed_ = glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS;
         previousMousePressed_ = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
         return;
     }
@@ -86,6 +86,14 @@ void InputController::fixedUpdate(GLFWwindow* window, Scene& scene) {
         bird.isSleeping = false;
         bird.sleepTimer = 0.0f;
     }
+
+    const bool nextBirdPressed = glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS;
+    const bool canSwitchBird =
+        scene.getGameState() == GameState::Ready && isBirdAtStartPosition(bird, startPosition);
+    if (canSwitchBird && nextBirdPressed && !previousNextBirdPressed_) {
+        scene.nextBird();
+    }
+    previousNextBirdPressed_ = nextBirdPressed;
 
     const bool mousePressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     double mouseX = 0.0;
