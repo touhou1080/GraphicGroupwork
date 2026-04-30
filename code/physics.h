@@ -15,6 +15,11 @@ struct CachedContactImpulse {
     float tangentImpulse = 0.0f;
 };
 
+struct PhysicsStepResult {
+    bool activeBirdContact = false;
+    Vec2 activeBirdCenterAtContact{0.0f, 0.0f};
+};
+
 Vec2 operator+(const Vec2& a, const Vec2& b);
 Vec2 operator-(const Vec2& a, const Vec2& b);
 Vec2 operator*(const Vec2& v, float s);
@@ -71,7 +76,7 @@ struct RigidBody2D {
 
 class PhysicsSystem {
   public:
-    void step(std::vector<RigidBody2D>& bodies, float dt) const;
+    PhysicsStepResult step(std::vector<RigidBody2D>& bodies, float dt) const;
 
   private:
     void applyGlobalForces(std::vector<RigidBody2D>& bodies) const;

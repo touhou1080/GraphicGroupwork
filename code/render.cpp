@@ -145,6 +145,27 @@ void drawBox(const Vec2& center, const Vec2& halfExtents, float angle) {
     glEnd();
     glPopMatrix();
 }
+
+void drawBirdTrajectory(const std::vector<std::vector<Vec2>>& segments) {
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glLineWidth(2.0f);
+    glEnable(GL_LINE_STIPPLE);
+    glLineStipple(1, 0x00FF);
+
+    for (const std::vector<Vec2>& segment : segments) {
+        if (segment.size() < 2) {
+            continue;
+        }
+        glBegin(GL_LINE_STRIP);
+        for (const Vec2& point : segment) {
+            glVertex2f(point.x, point.y);
+        }
+        glEnd();
+    }
+
+    glDisable(GL_LINE_STIPPLE);
+    glLineWidth(1.0f);
+}
 }  // namespace
 
 void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferHeight) const {
@@ -152,6 +173,8 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
 
     glClearColor(0.52f, 0.78f, 0.96f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    drawBirdTrajectory(scene.getBirdTrajectorySegments());
 
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
     for (const RigidBody2D& body : bodies) {

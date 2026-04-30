@@ -56,7 +56,8 @@ int main() {
         while (accumulator >= kFixedDt) {
             inputController.fixedUpdate(window, scene);
             if (!scene.isPaused()) {
-                physicsSystem.step(scene.getBodies(), kFixedDt);
+                const PhysicsStepResult stepResult = physicsSystem.step(scene.getBodies(), kFixedDt);
+                scene.updateBirdTrajectory(stepResult);
                 scene.pruneStaleBirds(kFixedDt);
             }
             accumulator -= kFixedDt;

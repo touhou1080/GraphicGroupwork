@@ -50,10 +50,19 @@ class Scene {
     GameState getGameState() const;
     void setGameState(GameState state);
 
+    void beginBirdTrajectory(const Vec2& launchPosition);
+    void updateBirdTrajectory(const PhysicsStepResult& stepResult);
+    const std::vector<std::vector<Vec2>>& getBirdTrajectorySegments() const;
+
   private:
+    void clearBirdTrajectory();
+    void appendBirdTrajectoryPoint(const Vec2& point);
+
     std::vector<RigidBody2D> bodies_;
+    std::vector<std::vector<Vec2>> birdTrajectorySegments_;
     bool paused_ = false;
     bool isDragging_ = false;
+    bool birdTrajectoryRecording_ = false;
     Vec2 birdStartPosition_{-6.0f, -1.5f};
     GameState gameState_ = GameState::Ready;
     SceneType currentScene_ = SceneType::Fortress;

@@ -25,16 +25,26 @@ Vec2& operator-=(Vec2& a, const Vec2& b) {
     return a;
 }
 
-void PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt) const {
+PhysicsStepResult PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt) const {
+    PhysicsStepResult result;
+
     applyGlobalForces(bodies);
     integrateVelocities(bodies, dt);
 
     std::vector<Contact> contacts;
     detectCollisions(bodies, contacts);
+    for (const Contact& contact : contacts) {
+        if (contact.bodyA == 0 || contact.bodyB == 0) {
+            result.activeBirdContact = true;
+            result.activeBirdCenterAtContact = bodies.front().position;
+            break;
+        }
+    }
     resolveCollisions(bodies, contacts, dt, contactCache_);
 
     integratePositions(bodies, dt);
     updateSleepStates(bodies, dt);
+    return result;
 }
 
 void PhysicsSystem::applyGlobalForces(std::vector<RigidBody2D>& bodies) const {

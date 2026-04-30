@@ -124,6 +124,7 @@ void InputController::fixedUpdate(GLFWwindow* window, Scene& scene) {
             bird.position = startPosition + offset;
             bird.angle = 0.0f;
         } else {
+            scene.beginBirdTrajectory(bird.position);
             const Vec2 launchVelocity = (startPosition - bird.position) * kLaunchSpeedScale;
             bird.velocity = launchVelocity;
             bird.angularVelocity = 0.0f;

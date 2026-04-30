@@ -3,12 +3,16 @@
 #include <algorithm>
 
 namespace {
+constexpr float kTrajectoryPointMinDistanceSq = 0.02f * 0.02f;
+
 float boxInertia(float mass, const Vec2& halfExtents) {
     // Rectangle inertia around center: I = m * (w^2 + h^2) / 12.
     const float width = 2.0f * halfExtents.x;
     const float height = 2.0f * halfExtents.y;
     return mass * (width * width + height * height) / 12.0f;
 }
+
+float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
 
 void applyBirdTypeProperties(RigidBody2D& bird, BirdType type) {
     bird.customTag = static_cast<int>(type);
@@ -171,6 +175,7 @@ void Scene::reset() {
     paused_ = false;
     isDragging_ = false;
     gameState_ = GameState::Ready;
+    clearBirdTrajectory();
     bodies_.clear();
     bodies_.push_back(makeBird(birdStartPosition_, currentBird_));
     birdStartPosition_ = bodies_.front().position;
@@ -294,3 +299,47 @@ void Scene::setBirdStartPosition(const Vec2& position) { birdStartPosition_ = po
 GameState Scene::getGameState() const { return gameState_; }
 
 void Scene::setGameState(GameState state) { gameState_ = state; }
+
+void Scene::beginBirdTrajectory(const Vec2& launchPosition) {
+    birdTrajectorySegments_.push_back({});
+    birdTrajectoryRecording_ = true;
+    appendBirdTrajectoryPoint(launchPosition);
+}
+
+void Scene::updateBirdTrajectory(const PhysicsStepResult& stepResult) {
+    if (!birdTrajectoryRecording_) {
+        return;
+    }
+
+    if (stepResult.activeBirdContact) {
+        appendBirdTrajectoryPoint(stepResult.activeBirdCenterAtContact);
+        birdTrajectoryRecording_ = false;
+        return;
+    }
+
+    if (!bodies_.empty() && gameState_ == GameState::Launched) {
+        appendBirdTrajectoryPoint(bodies_.front().position);
+    }
+}
+
+const std::vector<std::vector<Vec2>>& Scene::getBirdTrajectorySegments() const {
+    return birdTrajectorySegments_;
+}
+
+void Scene::clearBirdTrajectory() {
+    birdTrajectorySegments_.clear();
+    birdTrajectoryRecording_ = false;
+}
+
+void Scene::appendBirdTrajectoryPoint(const Vec2& point) {
+    if (birdTrajectorySegments_.empty()) {
+        birdTrajectorySegments_.push_back({});
+    }
+
+    std::vector<Vec2>& currentSegment = birdTrajectorySegments_.back();
+    if (!currentSegment.empty() &&
+        lengthSquared(point - currentSegment.back()) < kTrajectoryPointMinDistanceSq) {
+        return;
+    }
+    currentSegment.push_back(point);
+}
