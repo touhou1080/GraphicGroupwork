@@ -10,6 +10,21 @@ float boxInertia(float mass, const Vec2& halfExtents) {
     return mass * (width * width + height * height) / 12.0f;
 }
 
+void applyBirdTypeProperties(RigidBody2D& bird, BirdType type) {
+    bird.customTag = static_cast<int>(type);
+    if (type == BirdType::Yellow) {
+        // Rubber-ball yellow bird: bouncy, slick surface so it skips off blocks.
+        bird.restitution = 0.55f;
+        bird.staticFriction = 0.20f;
+        bird.dynamicFriction = 0.15f;
+    } else {
+        // Heavy red bird: minimal bounce, grippy.
+        bird.restitution = 0.30f;
+        bird.staticFriction = 0.45f;
+        bird.dynamicFriction = 0.35f;
+    }
+}
+
 RigidBody2D makeBird(const Vec2& position, BirdType type) {
     RigidBody2D bird;
     bird.shape.type = ShapeType::Circle;
@@ -21,18 +36,7 @@ RigidBody2D makeBird(const Vec2& position, BirdType type) {
     bird.invInertia = 1.0f / bird.inertia;
     bird.affectedByGravity = false;
     bird.isStatic = false;
-
-    if (type == BirdType::Yellow) {
-        // Rubber-ball yellow bird: very bouncy, slick surface so it skips off blocks.
-        bird.restitution = 0.55f;
-        bird.staticFriction = 0.20f;
-        bird.dynamicFriction = 0.15f;
-    } else {
-        // Heavy red bird: minimal bounce, grippy.
-        bird.restitution = 0.30f;
-        bird.staticFriction = 0.45f;
-        bird.dynamicFriction = 0.35f;
-    }
+    applyBirdTypeProperties(bird, type);
     return bird;
 }
 
@@ -197,7 +201,73 @@ void Scene::nextBird() {
     const int next = (static_cast<int>(currentBird_) + 1) %
                      static_cast<int>(BirdType::Count);
     currentBird_ = static_cast<BirdType>(next);
-    reset();
+
+    // Re-skin the active bird (bodies[0]) in place — keep its position/velocity,
+    // just swap its restitution / friction / colour tag. Other bodies (parked
+    // older birds, bricks, ground) are not touched, so the scene is preserved.
+    if (!bodies_.empty() && bodies_.front().shape.type == ShapeType::Circle) {
+        applyBirdTypeProperties(bodies_.front(), currentBird_);
+        bodies_.front().isSleeping = false;
+        bodies_.front().sleepTimer = 0.0f;
+    }
+}
+
+void Scene::pruneStaleBirds(float dt) {
+    // A bird is "done" if EITHER:
+    //   - Its linear speed has stayed below kQuietSpeed for kBirdLifetime
+    //     seconds (settled). The threshold is deliberately smaller than the
+    //     physics sleep threshold (0.06), so a bird only counts as quiet when
+    //     it is essentially frozen, not just rolling slowly.
+    //   - Its position has crossed the visible-world margin (flew off-screen).
+    constexpr float kQuietSpeed = 0.02f;
+    constexpr float kQuietSpeedSq = kQuietSpeed * kQuietSpeed;
+    constexpr float kBirdLifetime = 1.0f;
+    constexpr float kBoundaryX = 15.0f;
+    constexpr float kBoundaryY = 10.0f;
+
+    auto outOfBounds = [&](const RigidBody2D& body) {
+        return std::abs(body.position.x) > kBoundaryX ||
+               std::abs(body.position.y) > kBoundaryY;
+    };
+
+    auto tickQuietTimer = [&](RigidBody2D& body) {
+        const float vx = body.velocity.x;
+        const float vy = body.velocity.y;
+        if (vx * vx + vy * vy < kQuietSpeedSq) {
+            body.quietTimer += dt;
+        } else {
+            body.quietTimer = 0.0f;
+        }
+        return body.quietTimer >= kBirdLifetime;
+    };
+
+    // Parked birds (idx > 0): erase when stale. Walk back-to-front so indices
+    // we still want to inspect are not shifted by the erase.
+    for (std::size_t i = bodies_.size(); i > 1; --i) {
+        const std::size_t idx = i - 1;
+        RigidBody2D& body = bodies_[idx];
+        if (body.shape.type != ShapeType::Circle || body.isStatic) {
+            continue;
+        }
+        if (outOfBounds(body) || tickQuietTimer(body)) {
+            bodies_.erase(bodies_.begin() + idx);
+        }
+    }
+
+    // Active bird (bodies[0]): only consider it stale once it has been
+    // launched. Ready / Dragging keep the bird parked at the start with zero
+    // velocity, which would otherwise grow quietTimer and self-trigger.
+    // Replace in place rather than erase, because input.cpp expects bodies[0]
+    // to always be the player's bird.
+    if (gameState_ == GameState::Launched && !bodies_.empty() &&
+        bodies_.front().shape.type == ShapeType::Circle && !bodies_.front().isStatic) {
+        RigidBody2D& bird = bodies_.front();
+        if (outOfBounds(bird) || tickQuietTimer(bird)) {
+            bird = makeBird(birdStartPosition_, currentBird_);
+            isDragging_ = false;
+            gameState_ = GameState::Ready;
+        }
+    }
 }
 
 BirdType Scene::getCurrentBirdType() const { return currentBird_; }
