@@ -33,6 +33,7 @@ constexpr Glyph kFont[] = {
     {'T', {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}},
     {'U', {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
     {'X', {0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11}},
+    {'Y', {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04}},
     {':', {0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00}},
 };
 
@@ -91,7 +92,7 @@ void drawHUD(int framebufferWidth, int framebufferHeight) {
     y -= kLineHeight;
     drawText("N: NEXT SCENE", 4.0f * kPixel, y, kPixel);
     y -= kLineHeight;
-    drawText("B: NEXT BIRD", 4.0f * kPixel, y, kPixel);
+    drawText("B: BIRD TYPE", 4.0f * kPixel, y, kPixel);
     y -= kLineHeight;
     drawText("R: RESET", 4.0f * kPixel, y, kPixel);
     y -= kLineHeight;
@@ -153,10 +154,11 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
     glClear(GL_COLOR_BUFFER_BIT);
 
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
-    const BirdType birdType = scene.getCurrentBirdType();
     for (const RigidBody2D& body : bodies) {
         if (body.shape.type == ShapeType::Circle) {
-            if (birdType == BirdType::Yellow) {
+            // Each bird carries its own type tag, so a yellow bird parked next
+            // to a freshly-spawned red bird both render with the right colour.
+            if (body.customTag == static_cast<int>(BirdType::Yellow)) {
                 glColor3f(0.98f, 0.85f, 0.15f);
             } else {
                 glColor3f(0.85f, 0.2f, 0.2f);

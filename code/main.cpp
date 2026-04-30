@@ -57,6 +57,7 @@ int main() {
             inputController.fixedUpdate(window, scene);
             if (!scene.isPaused()) {
                 physicsSystem.step(scene.getBodies(), kFixedDt);
+                scene.pruneStaleBirds(kFixedDt);
             }
             accumulator -= kFixedDt;
         }

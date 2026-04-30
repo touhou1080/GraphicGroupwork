@@ -29,6 +29,7 @@ class Scene {
     void reset();
     void nextScene();
     void nextBird();
+    void pruneStaleBirds(float dt);
     SceneType getCurrentSceneType() const;
     BirdType getCurrentBirdType() const;
 

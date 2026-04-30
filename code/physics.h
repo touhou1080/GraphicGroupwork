@@ -50,6 +50,15 @@ struct RigidBody2D {
     // Sleep state to suppress jitter when the body has effectively come to rest.
     bool isSleeping = false;
     float sleepTimer = 0.0f;
+
+    // Independent timer maintained by Scene::pruneStaleBirds, ticking up while
+    // the body's linear speed stays below the (smaller) bird-disappearance
+    // threshold. Separate from sleepTimer because the two thresholds differ.
+    float quietTimer = 0.0f;
+
+    // Application-specific marker. Bird bodies stash their BirdType here so the
+    // renderer can colour each bird individually.
+    int customTag = 0;
 };
 
 class PhysicsSystem {
