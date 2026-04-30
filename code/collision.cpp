@@ -61,6 +61,67 @@ std::array<Vec2, 4> getBoxVertices(const RigidBody2D& b) {
             b.position + ax * hx - ay * hy};
 }
 
+struct Face {
+    Vec2 v1{0.0f, 0.0f};
+    Vec2 v2{0.0f, 0.0f};
+    Vec2 normal{0.0f, 1.0f};
+};
+
+Face getFaceTowardNormal(const RigidBody2D& box, const Vec2& normal) {
+    const Vec2 ax = boxAxisX(box);
+    const Vec2 ay = boxAxisY(box);
+    const float dx = dot(normal, ax);
+    const float dy = dot(normal, ay);
+
+    Face face;
+    if (std::abs(dx) > std::abs(dy)) {
+        const float sign = (dx >= 0.0f) ? 1.0f : -1.0f;
+        const Vec2 faceCenter = box.position + ax * (sign * box.shape.halfExtents.x);
+        face.normal = ax * sign;
+        face.v1 = faceCenter + ay * box.shape.halfExtents.y;
+        face.v2 = faceCenter - ay * box.shape.halfExtents.y;
+    } else {
+        const float sign = (dy >= 0.0f) ? 1.0f : -1.0f;
+        const Vec2 faceCenter = box.position + ay * (sign * box.shape.halfExtents.y);
+        face.normal = ay * sign;
+        face.v1 = faceCenter - ax * box.shape.halfExtents.x;
+        face.v2 = faceCenter + ax * box.shape.halfExtents.x;
+    }
+    return face;
+}
+
+Face getIncidentFace(const RigidBody2D& box, const Vec2& referenceNormal) {
+    return getFaceTowardNormal(box, referenceNormal * -1.0f);
+}
+
+int clipSegmentToLine(Vec2 outPoints[2], const Vec2 inPoints[2], const Vec2& normal, float offset) {
+    int outCount = 0;
+
+    const float d0 = dot(normal, inPoints[0]) - offset;
+    const float d1 = dot(normal, inPoints[1]) - offset;
+
+    if (d0 <= 0.0f) {
+        outPoints[outCount++] = inPoints[0];
+    }
+    if (d1 <= 0.0f) {
+        outPoints[outCount++] = inPoints[1];
+    }
+
+    if (d0 * d1 < 0.0f && outCount < 2) {
+        const float t = d0 / (d0 - d1);
+        outPoints[outCount++] = inPoints[0] + (inPoints[1] - inPoints[0]) * t;
+    }
+
+    return outCount;
+}
+
+void fallbackBoxContact(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
+    const Vec2 supportA = supportPointBox(a, out.normal);
+    const Vec2 supportB = supportPointBox(b, out.normal * -1.0f);
+    out.points[0] = (supportA + supportB) * 0.5f;
+    out.pointCount = 1;
+}
+
 bool pointInsideBox(const Vec2& p, const RigidBody2D& b) {
     const Vec2 local = inverseRotate(p - b.position, b.angle);
     constexpr float kTol = 0.01f;
@@ -231,8 +292,10 @@ bool detectBoxBoxSAT(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
 
     float minOverlap = 1e30f;
     Vec2 bestAxis = Vec2{1.0f, 0.0f};
+    int bestAxisIndex = 0;  // 0:A.x, 1:A.y, 2:B.x, 3:B.y
 
-    for (const Vec2& axis : axes) {
+    for (int i = 0; i < 4; ++i) {
+        const Vec2& axis = axes[i];
         const float dist = std::abs(dot(t, axis));
         const float projA =
             a.shape.halfExtents.x * std::abs(dot(aAxes[0], axis)) +
@@ -248,62 +311,66 @@ bool detectBoxBoxSAT(const RigidBody2D& a, const RigidBody2D& b, Contact& out) {
 
         if (overlap < minOverlap) {
             minOverlap = overlap;
+            bestAxisIndex = i;
             bestAxis = (dot(t, axis) >= 0.0f) ? axis : axis * -1.0f;
         }
     }
 
-    out.normal = normalized(bestAxis);
+    out.normal = normalized(bestAxis);  // Always points from A to B.
     out.penetration = minOverlap;
+    out.pointCount = 0;
 
-    std::vector<Vec2> candidates;
-    candidates.reserve(8);
+    const bool referenceIsA = (bestAxisIndex < 2);
+    const RigidBody2D& refBox = referenceIsA ? a : b;
+    const RigidBody2D& incBox = referenceIsA ? b : a;
 
-    const auto vertsA = getBoxVertices(a);
-    const auto vertsB = getBoxVertices(b);
+    // If B supplies the reference face, use the opposite normal for B's local
+    // reference face. The public contact normal still remains A -> B.
+    const Vec2 referenceNormal = referenceIsA ? out.normal : out.normal * -1.0f;
+    const Face refFace = getFaceTowardNormal(refBox, referenceNormal);
+    const Face incFace = getIncidentFace(incBox, refFace.normal);
 
-    for (const Vec2& v : vertsA) {
-        if (pointInsideBox(v, b)) {
-            candidates.push_back(v);
-        }
-    }
-    for (const Vec2& v : vertsB) {
-        if (pointInsideBox(v, a)) {
-            candidates.push_back(v);
-        }
-    }
-
-    if (candidates.empty()) {
-        const Vec2 supportA = supportPointBox(a, out.normal);
-        const Vec2 supportB = supportPointBox(b, out.normal * -1.0f);
-        out.points[0] = (supportA + supportB) * 0.5f;
-        out.pointCount = 1;
+    const Vec2 refEdge = normalized(refFace.v2 - refFace.v1);
+    if (lengthSquared(refEdge) < kEpsilon) {
+        fallbackBoxContact(a, b, out);
         return true;
     }
 
-    const Vec2 tangent{-out.normal.y, out.normal.x};
-    float minProj = 1e30f;
-    float maxProj = -1e30f;
-    Vec2 minPoint = candidates[0];
-    Vec2 maxPoint = candidates[0];
+    Vec2 incident[2] = {incFace.v1, incFace.v2};
+    Vec2 clip1[2];
+    Vec2 clip2[2];
 
-    for (const Vec2& p : candidates) {
-        const float proj = dot(p, tangent);
-        if (proj < minProj) {
-            minProj = proj;
-            minPoint = p;
-        }
-        if (proj > maxProj) {
-            maxProj = proj;
-            maxPoint = p;
+    const Vec2 sideNormal1 = refEdge * -1.0f;
+    const float sideOffset1 = dot(sideNormal1, refFace.v1);
+    const Vec2 sideNormal2 = refEdge;
+    const float sideOffset2 = dot(sideNormal2, refFace.v2);
+
+    int count = clipSegmentToLine(clip1, incident, sideNormal1, sideOffset1);
+    if (count < 2) {
+        fallbackBoxContact(a, b, out);
+        return true;
+    }
+
+    count = clipSegmentToLine(clip2, clip1, sideNormal2, sideOffset2);
+    if (count < 2) {
+        fallbackBoxContact(a, b, out);
+        return true;
+    }
+
+    const float referenceOffset = dot(refFace.normal, refFace.v1);
+    constexpr float kContactTolerance = 0.01f;
+
+    for (int i = 0; i < count && out.pointCount < 2; ++i) {
+        const float separation = dot(refFace.normal, clip2[i]) - referenceOffset;
+        if (separation <= kContactTolerance) {
+            // Project the point back onto the reference face so the solver uses
+            // a boundary point rather than a deeply buried point as the force arm.
+            out.points[out.pointCount++] = clip2[i] - refFace.normal * separation;
         }
     }
 
-    out.points[0] = minPoint;
-    out.pointCount = 1;
-
-    if (lengthSquared(maxPoint - minPoint) > 1e-4f) {
-        out.points[1] = maxPoint;
-        out.pointCount = 2;
+    if (out.pointCount == 0) {
+        fallbackBoxContact(a, b, out);
     }
 
     return true;
