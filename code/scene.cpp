@@ -301,6 +301,10 @@ GameState Scene::getGameState() const { return gameState_; }
 void Scene::setGameState(GameState state) { gameState_ = state; }
 
 void Scene::beginBirdTrajectory(const Vec2& launchPosition) {
+    constexpr std::size_t kMaxVisibleTrajectoryCount = 2;
+    while (birdTrajectorySegments_.size() >= kMaxVisibleTrajectoryCount) {
+        birdTrajectorySegments_.erase(birdTrajectorySegments_.begin());
+    }
     birdTrajectorySegments_.push_back({});
     birdTrajectoryRecording_ = true;
     appendBirdTrajectoryPoint(launchPosition);

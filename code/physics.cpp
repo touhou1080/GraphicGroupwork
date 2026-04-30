@@ -36,7 +36,11 @@ PhysicsStepResult PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt
     for (const Contact& contact : contacts) {
         if (contact.bodyA == 0 || contact.bodyB == 0) {
             result.activeBirdContact = true;
-            result.activeBirdCenterAtContact = bodies.front().position;
+            // Collision detection runs before position integration, so using
+            // the current center can collapse the last trajectory segment to
+            // zero length. Project one step along the pre-collision velocity
+            // so the recorded endpoint stays on the bird-center path.
+            result.activeBirdCenterAtContact = bodies.front().position + bodies.front().velocity * dt;
             break;
         }
     }
