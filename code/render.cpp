@@ -1,5 +1,6 @@
 #include "render.h"
 
+#include <algorithm>
 #include <GLFW/glfw3.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -14,6 +15,8 @@
 #include "scene.h"
 
 namespace {
+constexpr float kPi = 3.14159265f;
+
 struct Glyph {
     char c;
     std::uint8_t rows[7];
@@ -131,13 +134,34 @@ void drawCircle(const Vec2& center, float radius) {
     constexpr int kSegments = 24;
     for (int i = 0; i <= kSegments; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(kSegments);
-        const float angle = 2.0f * 3.14159265f * t;
+        const float angle = 2.0f * kPi * t;
         glVertex2f(center.x + radius * std::cos(angle), center.y + radius * std::sin(angle));
     }
     glEnd();
 }
 
-unsigned int loadTexture(const char* path) {
+void keyOutWhiteBackground(unsigned char* pixels, int width, int height) {
+    const int totalPixels = width * height;
+    for (int i = 0; i < totalPixels; ++i) {
+        unsigned char* pixel = pixels + i * 4;
+        const int r = pixel[0];
+        const int g = pixel[1];
+        const int b = pixel[2];
+
+        if (r > 246 && g > 246 && b > 246) {
+            pixel[3] = 0;
+            continue;
+        }
+
+        if (r > 220 && g > 220 && b > 220) {
+            const int minChannel = std::min({r, g, b});
+            const int whiteness = 255 - minChannel;
+            pixel[3] = static_cast<unsigned char>(std::clamp(whiteness * 8, 0, 255));
+        }
+    }
+}
+
+unsigned int loadTexture(const char* path, bool keyOutWhite = false) {
     int width = 0;
     int height = 0;
     int channels = 0;
@@ -146,6 +170,10 @@ unsigned int loadTexture(const char* path) {
     if (pixels == nullptr) {
         std::cerr << "Failed to load texture: " << path << "\n";
         return 0;
+    }
+
+    if (keyOutWhite) {
+        keyOutWhiteBackground(pixels, width, height);
     }
 
     unsigned int texture = 0;
@@ -170,13 +198,13 @@ unsigned int loadTexture(const char* path) {
     return texture;
 }
 
-void drawTexturedCircleSprite(const Vec2& center, float radius, float angle, unsigned int texture) {
+void drawTexturedQuad(const Vec2& center, float width, float height, float angle, unsigned int texture) {
     if (texture == 0) {
-        drawCircle(center, radius);
         return;
     }
-    constexpr float kSpriteScale = 1.85f;
-    const float spriteRadius = radius * kSpriteScale;
+
+    const float halfWidth = 0.5f * width;
+    const float halfHeight = 0.5f * height;
 
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
@@ -189,19 +217,29 @@ void drawTexturedCircleSprite(const Vec2& center, float radius, float angle, uns
     glRotatef(angle * 57.2957795f, 0.0f, 0.0f, 1.0f);
     glBegin(GL_QUADS);
     glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(-spriteRadius, -spriteRadius);
+    glVertex2f(-halfWidth, -halfHeight);
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(spriteRadius, -spriteRadius);
+    glVertex2f(halfWidth, -halfHeight);
     glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(spriteRadius, spriteRadius);
+    glVertex2f(halfWidth, halfHeight);
     glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(-spriteRadius, spriteRadius);
+    glVertex2f(-halfWidth, halfHeight);
     glEnd();
     glPopMatrix();
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
+}
+
+void drawTexturedCircleSprite(const Vec2& center, float radius, float angle, unsigned int texture) {
+    if (texture == 0) {
+        drawCircle(center, radius);
+        return;
+    }
+    constexpr float kSpriteScale = 1.85f;
+    const float spriteRadius = radius * kSpriteScale;
+    drawTexturedQuad(center, spriteRadius * 2.0f, spriteRadius * 2.0f, angle, texture);
 }
 
 void drawBackground(int framebufferWidth, int framebufferHeight, unsigned int texture) {
@@ -269,13 +307,101 @@ void drawBirdTrajectory(const std::vector<std::vector<Vec2>>& segments) {
     glDisable(GL_LINE_STIPPLE);
     glLineWidth(1.0f);
 }
+
+float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
+
+Vec2 normalized(const Vec2& v) {
+    const float lenSq = lengthSquared(v);
+    if (lenSq <= 1e-8f) {
+        return Vec2{0.0f, 0.0f};
+    }
+    return v / std::sqrt(lenSq);
+}
+
+void drawBandSegment(const Vec2& start, const Vec2& end, float thickness) {
+    const Vec2 delta = end - start;
+    const float lenSq = lengthSquared(delta);
+    if (lenSq <= 1e-8f) {
+        return;
+    }
+
+    const Vec2 tangent = delta / std::sqrt(lenSq);
+    const Vec2 normal = Vec2{-tangent.y, tangent.x} * (0.5f * thickness);
+
+    glBegin(GL_QUADS);
+    glVertex2f(start.x - normal.x, start.y - normal.y);
+    glVertex2f(start.x + normal.x, start.y + normal.y);
+    glVertex2f(end.x + normal.x, end.y + normal.y);
+    glVertex2f(end.x - normal.x, end.y - normal.y);
+    glEnd();
+}
+
+struct SlingshotBandGeometry {
+    Vec2 leftFork;
+    Vec2 rightFork;
+    Vec2 pouchLeft;
+    Vec2 pouchRight;
+};
+
+SlingshotBandGeometry makeSlingshotBandGeometry(const Scene& scene) {
+    constexpr Vec2 kLeftForkOffset{0.10f, 1.74f};
+    constexpr Vec2 kRightForkOffset{1.08f, 1.74f};
+    constexpr float kPouchHalfWidth = 0.12f;
+    constexpr Vec2 kPouchOffset{0.0f, 0.02f};
+    const float kBirdRadius = 0.35f;
+
+    const Vec2 launchPoint = scene.getBirdStartPosition();
+    const std::vector<RigidBody2D>& bodies = scene.getBodies();
+    const Vec2 birdCenter = bodies.empty() ? launchPoint : bodies.front().position;
+    const Vec2 pullDirection = normalized(birdCenter - launchPoint);
+    const Vec2 pouchCenter = birdCenter + kPouchOffset - pullDirection * (0.2f * kBirdRadius);
+
+    return SlingshotBandGeometry{
+        launchPoint + kLeftForkOffset,
+        launchPoint + kRightForkOffset,
+        pouchCenter + Vec2{-kPouchHalfWidth, 0.0f},
+        pouchCenter + Vec2{kPouchHalfWidth, 0.0f},
+    };
+}
+
+void drawSlingshotBase(const Scene& scene, unsigned int texture) {
+    constexpr float kSpriteWidth = 3.7f;
+    constexpr float kSpriteHeight = 3.7f;
+    constexpr Vec2 kSpriteAnchorUv{0.51f, 0.31f};
+
+    const Vec2 launchPoint = scene.getBirdStartPosition();
+    const Vec2 spriteCenter = launchPoint +
+                              Vec2{(0.5f - kSpriteAnchorUv.x) * kSpriteWidth,
+                                   (0.5f - kSpriteAnchorUv.y) * kSpriteHeight};
+    drawTexturedQuad(spriteCenter, kSpriteWidth, kSpriteHeight, 0.0f, texture);
+}
+
+void drawSlingshotBands(const Scene& scene, bool frontLayer) {
+    constexpr float kBandThickness = 0.09f;
+    if (scene.getGameState() == GameState::Launched) {
+        return;
+    }
+
+    const SlingshotBandGeometry geometry = makeSlingshotBandGeometry(scene);
+
+    if (frontLayer) {
+        glColor3f(0.18f, 0.10f, 0.06f);
+        drawBandSegment(geometry.rightFork, geometry.pouchRight, kBandThickness);
+        drawBandSegment(geometry.pouchLeft, geometry.pouchRight, kBandThickness * 0.9f);
+        return;
+    }
+
+    glColor3f(0.30f, 0.18f, 0.10f);
+    drawBandSegment(geometry.leftFork, geometry.pouchLeft, kBandThickness);
+}
 }  // namespace
 
 Renderer::Renderer()
     : redBirdTexture_(loadTexture("assets/red.png")),
       yellowBirdTexture_(loadTexture("assets/yellow.png")),
       pigTexture_(loadTexture("assets/pig.png")),
-      backgroundTexture_(loadTexture("assets/background_grassland.png")) {}
+      backgroundTexture_(loadTexture("assets/background_grassland.png")),
+      slingshotTexture_(loadTexture("assets/slingshot.png", true)) {}
 
 void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferHeight) const {
     setupProjection(framebufferWidth, framebufferHeight);
@@ -286,6 +412,8 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
     drawBackground(framebufferWidth, framebufferHeight, backgroundTexture_);
 
     drawBirdTrajectory(scene.getBirdTrajectorySegments());
+    drawSlingshotBase(scene, slingshotTexture_);
+    drawSlingshotBands(scene, false);
 
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
     for (const RigidBody2D& body : bodies) {
@@ -311,5 +439,6 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
         }
     }
 
+    drawSlingshotBands(scene, true);
     drawHUD(framebufferWidth, framebufferHeight);
 }
