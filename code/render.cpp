@@ -2,8 +2,12 @@
 
 #include <GLFW/glfw3.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "third_party/stb_image.h"
+
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <vector>
 
 #include "physics.h"
@@ -133,6 +137,73 @@ void drawCircle(const Vec2& center, float radius) {
     glEnd();
 }
 
+unsigned int loadTexture(const char* path) {
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char* pixels = stbi_load(path, &width, &height, &channels, 4);
+    if (pixels == nullptr) {
+        std::cerr << "Failed to load texture: " << path << "\n";
+        return 0;
+    }
+
+    unsigned int texture = 0;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,
+                 GL_RGBA,
+                 width,
+                 height,
+                 0,
+                 GL_RGBA,
+                 GL_UNSIGNED_BYTE,
+                 pixels);
+
+    stbi_image_free(pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return texture;
+}
+
+void drawTexturedCircleSprite(const Vec2& center, float radius, float angle, unsigned int texture) {
+    if (texture == 0) {
+        drawCircle(center, radius);
+        return;
+    }
+    constexpr float kSpriteScale = 1.85f;
+    const float spriteRadius = radius * kSpriteScale;
+
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    glPushMatrix();
+    glTranslatef(center.x, center.y, 0.0f);
+    glRotatef(angle * 57.2957795f, 0.0f, 0.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-spriteRadius, -spriteRadius);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(spriteRadius, -spriteRadius);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(spriteRadius, spriteRadius);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(-spriteRadius, spriteRadius);
+    glEnd();
+    glPopMatrix();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
+}
+
 void drawBox(const Vec2& center, const Vec2& halfExtents, float angle) {
     glPushMatrix();
     glTranslatef(center.x, center.y, 0.0f);
@@ -168,6 +239,11 @@ void drawBirdTrajectory(const std::vector<std::vector<Vec2>>& segments) {
 }
 }  // namespace
 
+Renderer::Renderer()
+    : redBirdTexture_(loadTexture("assets/red.png")),
+      yellowBirdTexture_(loadTexture("assets/yellow.png")),
+      pigTexture_(loadTexture("assets/pig.png")) {}
+
 void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferHeight) const {
     setupProjection(framebufferWidth, framebufferHeight);
 
@@ -181,14 +257,16 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
         if (body.shape.type == ShapeType::Circle) {
             if (body.customTag == static_cast<int>(BodyTag::Pig)) {
                 glColor3f(0.35f, 0.82f, 0.22f);
+                drawTexturedCircleSprite(body.position, body.shape.radius, body.angle, pigTexture_);
             } else if (body.customTag == static_cast<int>(BodyTag::BirdYellow)) {
                 // Each bird carries its own type tag, so parked birds keep
                 // the colour they had when they were launched.
                 glColor3f(0.98f, 0.85f, 0.15f);
+                drawTexturedCircleSprite(body.position, body.shape.radius, body.angle, yellowBirdTexture_);
             } else {
                 glColor3f(0.85f, 0.2f, 0.2f);
+                drawTexturedCircleSprite(body.position, body.shape.radius, body.angle, redBirdTexture_);
             }
-            drawCircle(body.position, body.shape.radius);
         } else {
             if (body.isStatic) {
                 glColor3f(0.25f, 0.55f, 0.25f);
