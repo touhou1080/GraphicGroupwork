@@ -27,8 +27,16 @@ add_executable(
   render.cpp
 )
 
+target_include_directories(angry_bird_sim PRIVATE ${glfw_SOURCE_DIR}/include)
+
+add_custom_command(TARGET angry_bird_sim POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/../assets
+          $<TARGET_FILE_DIR:angry_bird_sim>/assets
+)
+
 if(WIN32)
-  target_link_libraries(angry_bird_sim PRIVATE opengl32)
+  target_link_libraries(angry_bird_sim PRIVATE glfw opengl32)
 else()
   target_link_libraries(angry_bird_sim PRIVATE glfw OpenGL::GL)
 endif()
