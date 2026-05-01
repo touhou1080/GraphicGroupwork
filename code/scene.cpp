@@ -75,10 +75,15 @@ RigidBody2D makePig(const Vec2& position) {
     return pig;
 }
 
-RigidBody2D makeWoodBlock(const Vec2& position, const Vec2& halfExtents, float angle = 0.0f) {
-    constexpr float kWoodDensity = 2.9f;
-    constexpr float kMinWoodMass = 0.5f;
-
+RigidBody2D makeBoxBlock(const Vec2& position,
+                         const Vec2& halfExtents,
+                         float angle,
+                         float density,
+                         float minMass,
+                         float restitution,
+                         float staticFriction,
+                         float dynamicFriction,
+                         BodyTag tag) {
     RigidBody2D block;
     block.shape.type = ShapeType::Box;
     block.shape.halfExtents = halfExtents;
@@ -87,15 +92,40 @@ RigidBody2D makeWoodBlock(const Vec2& position, const Vec2& halfExtents, float a
 
     const float width = 2.0f * halfExtents.x;
     const float height = 2.0f * halfExtents.y;
-    block.mass = std::max(kMinWoodMass, width * height * kWoodDensity);
+    block.mass = std::max(minMass, width * height * density);
     block.invMass = 1.0f / block.mass;
     block.inertia = boxInertia(block.mass, block.shape.halfExtents);
     block.invInertia = 1.0f / block.inertia;
-    block.restitution = 0.05f;
-    block.staticFriction = 0.82f;
-    block.dynamicFriction = 0.66f;
+    block.restitution = restitution;
+    block.staticFriction = staticFriction;
+    block.dynamicFriction = dynamicFriction;
     block.isStatic = false;
+    block.customTag = static_cast<int>(tag);
     return block;
+}
+
+RigidBody2D makeWoodBlock(const Vec2& position, const Vec2& halfExtents, float angle = 0.0f) {
+    return makeBoxBlock(position,
+                        halfExtents,
+                        angle,
+                        2.9f,
+                        0.5f,
+                        0.05f,
+                        0.82f,
+                        0.66f,
+                        BodyTag::WoodBlock);
+}
+
+RigidBody2D makeIceBlock(const Vec2& position, const Vec2& halfExtents, float angle = 0.0f) {
+    return makeBoxBlock(position,
+                        halfExtents,
+                        angle,
+                        1.35f,
+                        0.35f,
+                        0.10f,
+                        0.12f,
+                        0.06f,
+                        BodyTag::IceBlock);
 }
 
 void addWoodBlock(std::vector<RigidBody2D>& bodies,
@@ -105,6 +135,15 @@ void addWoodBlock(std::vector<RigidBody2D>& bodies,
                   float halfHeight,
                   float angle = 0.0f) {
     bodies.push_back(makeWoodBlock(Vec2{x, y}, Vec2{halfWidth, halfHeight}, angle));
+}
+
+void addIceBlock(std::vector<RigidBody2D>& bodies,
+                 float x,
+                 float y,
+                 float halfWidth,
+                 float halfHeight,
+                 float angle = 0.0f) {
+    bodies.push_back(makeIceBlock(Vec2{x, y}, Vec2{halfWidth, halfHeight}, angle));
 }
 
 void buildFortressScene(std::vector<RigidBody2D>& bodies) {
@@ -180,7 +219,7 @@ void buildPyramidScene(std::vector<RigidBody2D>& bodies) {
         const float y = groundTop + halfExtent + row * spacing;
         for (int i = 0; i < count; ++i) {
             const float x = centerX + (i - (count - 1) * 0.5f) * spacing;
-            addWoodBlock(bodies, x, y, halfExtent, halfExtent);
+            addIceBlock(bodies, x, y, halfExtent, halfExtent);
         }
     }
 

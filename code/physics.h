@@ -36,7 +36,9 @@ enum class ShapeType {
 enum class BodyTag {
     BirdRed = 0,
     BirdYellow = 1,
-    Pig = 100
+    Pig = 100,
+    WoodBlock = 200,
+    IceBlock = 201
 };
 
 struct Shape {

@@ -402,7 +402,8 @@ Renderer::Renderer()
     : redBirdTexture_(loadTexture("assets/red.png")),
       yellowBirdTexture_(loadTexture("assets/yellow.png")),
       pigTexture_(loadTexture("assets/pig.png")),
-      backgroundTexture_(loadTexture("assets/background_grassland.png")),
+      grasslandBackgroundTexture_(loadTexture("assets/background_grassland.png")),
+      winterBackgroundTexture_(loadTexture("assets/background_winter.png")),
       slingshotTexture_(loadTexture("assets/slingshot.png", true)) {}
 
 void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferHeight) const {
@@ -411,7 +412,10 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
     glClearColor(0.52f, 0.78f, 0.96f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    drawBackground(framebufferWidth, framebufferHeight, backgroundTexture_);
+    const unsigned int backgroundTexture =
+        (scene.getCurrentSceneType() == SceneType::Pyramid) ? winterBackgroundTexture_
+                                                            : grasslandBackgroundTexture_;
+    drawBackground(framebufferWidth, framebufferHeight, backgroundTexture);
 
     drawBirdTrajectory(scene.getBirdTrajectorySegments());
     drawSlingshotBase(scene, slingshotTexture_);
@@ -436,7 +440,11 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
             if (body.isStatic) {
                 continue;
             }
-            glColor3f(0.7f, 0.5f, 0.3f);
+            if (body.customTag == static_cast<int>(BodyTag::IceBlock)) {
+                glColor3f(0.62f, 0.88f, 1.0f);
+            } else {
+                glColor3f(0.7f, 0.5f, 0.3f);
+            }
             drawBox(body.position, body.shape.halfExtents, body.angle);
         }
     }

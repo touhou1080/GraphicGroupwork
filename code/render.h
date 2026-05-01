@@ -11,6 +11,7 @@ class Renderer {
     unsigned int redBirdTexture_ = 0;
     unsigned int yellowBirdTexture_ = 0;
     unsigned int pigTexture_ = 0;
-    unsigned int backgroundTexture_ = 0;
+    unsigned int grasslandBackgroundTexture_ = 0;
+    unsigned int winterBackgroundTexture_ = 0;
     unsigned int slingshotTexture_ = 0;
 };
