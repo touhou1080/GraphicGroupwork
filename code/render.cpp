@@ -344,13 +344,14 @@ struct SlingshotBandGeometry {
 };
 
 SlingshotBandGeometry makeSlingshotBandGeometry(const Scene& scene) {
+    constexpr Vec2 kSlingshotVisualOffset{0.0f, -1.28f};
     constexpr Vec2 kLeftForkOffset{0.10f, 1.74f};
     constexpr Vec2 kRightForkOffset{1.08f, 1.74f};
     constexpr float kPouchHalfWidth = 0.12f;
     constexpr Vec2 kPouchOffset{0.0f, 0.02f};
     const float kBirdRadius = 0.35f;
 
-    const Vec2 launchPoint = scene.getBirdStartPosition();
+    const Vec2 launchPoint = scene.getBirdStartPosition() + kSlingshotVisualOffset;
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
     const Vec2 birdCenter = bodies.empty() ? launchPoint : bodies.front().position;
     const Vec2 pullDirection = normalized(birdCenter - launchPoint);
@@ -365,11 +366,12 @@ SlingshotBandGeometry makeSlingshotBandGeometry(const Scene& scene) {
 }
 
 void drawSlingshotBase(const Scene& scene, unsigned int texture) {
+    constexpr Vec2 kSlingshotVisualOffset{0.0f, -1.28f};
     constexpr float kSpriteWidth = 3.7f;
     constexpr float kSpriteHeight = 3.7f;
     constexpr Vec2 kSpriteAnchorUv{0.51f, 0.31f};
 
-    const Vec2 launchPoint = scene.getBirdStartPosition();
+    const Vec2 launchPoint = scene.getBirdStartPosition() + kSlingshotVisualOffset;
     const Vec2 spriteCenter = launchPoint +
                               Vec2{(0.5f - kSpriteAnchorUv.x) * kSpriteWidth,
                                    (0.5f - kSpriteAnchorUv.y) * kSpriteHeight};
