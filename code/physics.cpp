@@ -3,11 +3,25 @@
 #include "collision.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 constexpr Vec2 kGravity{0.0f, -9.8f};
+constexpr float kPigDefeatImpactSpeed = 3.0f;
 
+float dot(const Vec2& a, const Vec2& b) { return a.x * b.x + a.y * b.y; }
 float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
+
+bool isPig(const RigidBody2D& body) {
+    return body.customTag == static_cast<int>(BodyTag::Pig);
+}
+
+void appendUniqueDefeatedBody(PhysicsStepResult& result, std::size_t bodyIndex) {
+    if (std::find(result.defeatedBodies.begin(), result.defeatedBodies.end(), bodyIndex) ==
+        result.defeatedBodies.end()) {
+        result.defeatedBodies.push_back(bodyIndex);
+    }
+}
 }
 
 Vec2 operator+(const Vec2& a, const Vec2& b) { return Vec2{a.x + b.x, a.y + b.y}; }
@@ -34,6 +48,23 @@ PhysicsStepResult PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt
     std::vector<Contact> contacts;
     detectCollisions(bodies, contacts);
     for (const Contact& contact : contacts) {
+        if (contact.bodyA >= bodies.size() || contact.bodyB >= bodies.size()) {
+            continue;
+        }
+
+        const RigidBody2D& a = bodies[contact.bodyA];
+        const RigidBody2D& b = bodies[contact.bodyB];
+        const bool aIsPig = isPig(a);
+        const bool bIsPig = isPig(b);
+
+        if (aIsPig || bIsPig) {
+            const Vec2 relativeVelocity = b.velocity - a.velocity;
+            const float impactSpeed = std::abs(dot(relativeVelocity, contact.normal));
+            if (impactSpeed >= kPigDefeatImpactSpeed) {
+                appendUniqueDefeatedBody(result, aIsPig ? contact.bodyA : contact.bodyB);
+            }
+        }
+
         const bool touchesActiveBird = contact.bodyA == 0 || contact.bodyB == 0;
         if (!touchesActiveBird) {
             continue;
@@ -57,6 +88,10 @@ PhysicsStepResult PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt
     integratePositions(bodies, dt);
     updateSleepStates(bodies, dt);
     return result;
+}
+
+void PhysicsSystem::clearContactCache() const {
+    contactCache_.clear();
 }
 
 void PhysicsSystem::applyGlobalForces(std::vector<RigidBody2D>& bodies) const {

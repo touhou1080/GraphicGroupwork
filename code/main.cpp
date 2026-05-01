@@ -58,7 +58,11 @@ int main() {
             if (!scene.isPaused()) {
                 const PhysicsStepResult stepResult = physicsSystem.step(scene.getBodies(), kFixedDt);
                 scene.updateBirdTrajectory(stepResult);
-                scene.pruneStaleBirds(kFixedDt);
+                bool removedBodies = scene.applyPhysicsStepResult(stepResult);
+                removedBodies = scene.pruneStaleBirds(kFixedDt) || removedBodies;
+                if (removedBodies) {
+                    physicsSystem.clearContactCache();
+                }
             }
             accumulator -= kFixedDt;
         }

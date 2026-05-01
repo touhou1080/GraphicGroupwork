@@ -29,7 +29,8 @@ class Scene {
     void reset();
     void nextScene();
     void nextBird();
-    void pruneStaleBirds(float dt);
+    bool pruneStaleBirds(float dt);
+    bool applyPhysicsStepResult(const PhysicsStepResult& stepResult);
     SceneType getCurrentSceneType() const;
     BirdType getCurrentBirdType() const;
 

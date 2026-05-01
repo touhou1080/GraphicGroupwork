@@ -18,6 +18,7 @@ struct CachedContactImpulse {
 struct PhysicsStepResult {
     bool activeBirdImpact = false;
     Vec2 activeBirdCenterAtImpact{0.0f, 0.0f};
+    std::vector<std::size_t> defeatedBodies;
 };
 
 Vec2 operator+(const Vec2& a, const Vec2& b);
@@ -30,6 +31,12 @@ Vec2& operator-=(Vec2& a, const Vec2& b);
 enum class ShapeType {
     Circle,
     Box
+};
+
+enum class BodyTag {
+    BirdRed = 0,
+    BirdYellow = 1,
+    Pig = 100
 };
 
 struct Shape {
@@ -77,6 +84,7 @@ struct RigidBody2D {
 class PhysicsSystem {
   public:
     PhysicsStepResult step(std::vector<RigidBody2D>& bodies, float dt) const;
+    void clearContactCache() const;
 
   private:
     void applyGlobalForces(std::vector<RigidBody2D>& bodies) const;

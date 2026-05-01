@@ -179,9 +179,11 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
     const std::vector<RigidBody2D>& bodies = scene.getBodies();
     for (const RigidBody2D& body : bodies) {
         if (body.shape.type == ShapeType::Circle) {
-            // Each bird carries its own type tag, so a yellow bird parked next
-            // to a freshly-spawned red bird both render with the right colour.
-            if (body.customTag == static_cast<int>(BirdType::Yellow)) {
+            if (body.customTag == static_cast<int>(BodyTag::Pig)) {
+                glColor3f(0.35f, 0.82f, 0.22f);
+            } else if (body.customTag == static_cast<int>(BodyTag::BirdYellow)) {
+                // Each bird carries its own type tag, so parked birds keep
+                // the colour they had when they were launched.
                 glColor3f(0.98f, 0.85f, 0.15f);
             } else {
                 glColor3f(0.85f, 0.2f, 0.2f);

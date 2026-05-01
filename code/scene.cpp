@@ -1,6 +1,7 @@
 #include "scene.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 constexpr float kTrajectoryPointMinDistanceSq = 0.02f * 0.02f;
@@ -14,18 +15,25 @@ float boxInertia(float mass, const Vec2& halfExtents) {
 
 float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }
 
-void applyBirdTypeProperties(RigidBody2D& bird, BirdType type) {
-    constexpr float kRedBirdMass = 1.0f;
-    constexpr float kYellowBirdMass = 3.0f;
+bool isBirdBody(const RigidBody2D& body) {
+    return body.shape.type == ShapeType::Circle &&
+           (body.customTag == static_cast<int>(BodyTag::BirdRed) ||
+            body.customTag == static_cast<int>(BodyTag::BirdYellow));
+}
 
-    bird.customTag = static_cast<int>(type);
+void applyBirdTypeProperties(RigidBody2D& bird, BirdType type) {
+    constexpr float kRedBirdMass = 2.0f;
+    constexpr float kYellowBirdMass = 4.0f;
+
     if (type == BirdType::Yellow) {
+        bird.customTag = static_cast<int>(BodyTag::BirdYellow);
         bird.mass = kYellowBirdMass;
         // Rubber-ball yellow bird: bouncy, slick surface so it skips off blocks.
         bird.restitution = 0.55f;
         bird.staticFriction = 0.20f;
         bird.dynamicFriction = 0.15f;
     } else {
+        bird.customTag = static_cast<int>(BodyTag::BirdRed);
         bird.mass = kRedBirdMass;
         // Heavy red bird: minimal bounce, grippy.
         bird.restitution = 0.30f;
@@ -47,6 +55,24 @@ RigidBody2D makeBird(const Vec2& position, BirdType type) {
     bird.isStatic = false;
     applyBirdTypeProperties(bird, type);
     return bird;
+}
+
+RigidBody2D makePig(const Vec2& position) {
+    RigidBody2D pig;
+    pig.shape.type = ShapeType::Circle;
+    pig.shape.radius = 0.30f;
+    pig.position = position;
+    pig.mass = 0.85f;
+    pig.invMass = 1.0f / pig.mass;
+    pig.inertia = 0.5f * pig.mass * pig.shape.radius * pig.shape.radius;
+    pig.invInertia = 1.0f / pig.inertia;
+    pig.restitution = 0.20f;
+    pig.staticFriction = 0.65f;
+    pig.dynamicFriction = 0.45f;
+    pig.affectedByGravity = true;
+    pig.isStatic = false;
+    pig.customTag = static_cast<int>(BodyTag::Pig);
+    return pig;
 }
 
 RigidBody2D makeWoodBlock(const Vec2& position, const Vec2& halfExtents, float angle = 0.0f) {
@@ -133,6 +159,8 @@ void buildFortressScene(std::vector<RigidBody2D>& bodies) {
     addWoodBlock(bodies, 6.20f, capPostY, postHalfWidth, capPostHalfHeight);
     addWoodBlock(bodies, 6.95f, capPostY, postHalfWidth, capPostHalfHeight);
 
+    bodies.push_back(makePig(Vec2{6.20f, midBeamY + beamHalfHeight + 0.30f}));
+
     addWoodBlock(bodies, 3.25f, -2.82f, 0.70f, 0.14f, 0.42f);
     addWoodBlock(bodies, 9.10f, -2.82f, 0.70f, 0.14f, -0.42f);
 }
@@ -155,6 +183,8 @@ void buildPyramidScene(std::vector<RigidBody2D>& bodies) {
             addWoodBlock(bodies, x, y, halfExtent, halfExtent);
         }
     }
+
+    bodies.push_back(makePig(Vec2{centerX, groundTop + rows * spacing + 0.30f}));
 }
 
 RigidBody2D makeGround() {
@@ -222,7 +252,7 @@ void Scene::nextBird() {
     }
 }
 
-void Scene::pruneStaleBirds(float dt) {
+bool Scene::pruneStaleBirds(float dt) {
     // A bird is "done" if EITHER:
     //   - Its linear speed has stayed below kQuietSpeed for kBirdLifetime
     //     seconds (settled). The threshold is deliberately smaller than the
@@ -234,6 +264,7 @@ void Scene::pruneStaleBirds(float dt) {
     constexpr float kBirdLifetime = 1.0f;
     constexpr float kBoundaryX = 15.0f;
     constexpr float kBoundaryY = 10.0f;
+    bool removedBody = false;
 
     auto outOfBounds = [&](const RigidBody2D& body) {
         return std::abs(body.position.x) > kBoundaryX ||
@@ -256,11 +287,12 @@ void Scene::pruneStaleBirds(float dt) {
     for (std::size_t i = bodies_.size(); i > 1; --i) {
         const std::size_t idx = i - 1;
         RigidBody2D& body = bodies_[idx];
-        if (body.shape.type != ShapeType::Circle || body.isStatic) {
+        if (!isBirdBody(body) || body.isStatic) {
             continue;
         }
         if (outOfBounds(body) || tickQuietTimer(body)) {
             bodies_.erase(bodies_.begin() + idx);
+            removedBody = true;
         }
     }
 
@@ -278,6 +310,29 @@ void Scene::pruneStaleBirds(float dt) {
             gameState_ = GameState::Ready;
         }
     }
+
+    return removedBody;
+}
+
+bool Scene::applyPhysicsStepResult(const PhysicsStepResult& stepResult) {
+    std::vector<std::size_t> defeated = stepResult.defeatedBodies;
+    std::sort(defeated.begin(), defeated.end());
+    defeated.erase(std::unique(defeated.begin(), defeated.end()), defeated.end());
+
+    bool removedBody = false;
+    for (std::size_t i = defeated.size(); i > 0; --i) {
+        const std::size_t idx = defeated[i - 1];
+        if (idx == 0 || idx >= bodies_.size()) {
+            continue;
+        }
+        if (bodies_[idx].customTag != static_cast<int>(BodyTag::Pig)) {
+            continue;
+        }
+
+        bodies_.erase(bodies_.begin() + idx);
+        removedBody = true;
+    }
+    return removedBody;
 }
 
 BirdType Scene::getCurrentBirdType() const { return currentBird_; }
