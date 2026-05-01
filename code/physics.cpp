@@ -7,7 +7,7 @@
 
 namespace {
 constexpr Vec2 kGravity{0.0f, -9.8f};
-constexpr float kPigDefeatImpactSpeed = 3.0f;
+constexpr float kPigDefeatImpactSpeed = 1.0f;
 
 float dot(const Vec2& a, const Vec2& b) { return a.x * b.x + a.y * b.y; }
 float lengthSquared(const Vec2& v) { return v.x * v.x + v.y * v.y; }

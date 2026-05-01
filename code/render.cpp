@@ -204,6 +204,38 @@ void drawTexturedCircleSprite(const Vec2& center, float radius, float angle, uns
     glDisable(GL_BLEND);
 }
 
+void drawBackground(int framebufferWidth, int framebufferHeight, unsigned int texture) {
+    if (texture == 0) {
+        return;
+    }
+
+    if (framebufferHeight <= 0) {
+        framebufferHeight = 1;
+    }
+
+    constexpr float kWorldHalfHeight = 6.0f;
+    const float aspect = static_cast<float>(framebufferWidth) / static_cast<float>(framebufferHeight);
+    const float halfWidth = kWorldHalfHeight * aspect;
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-halfWidth, -kWorldHalfHeight);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(halfWidth, -kWorldHalfHeight);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(halfWidth, kWorldHalfHeight);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(-halfWidth, kWorldHalfHeight);
+    glEnd();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+}
+
 void drawBox(const Vec2& center, const Vec2& halfExtents, float angle) {
     glPushMatrix();
     glTranslatef(center.x, center.y, 0.0f);
@@ -242,13 +274,16 @@ void drawBirdTrajectory(const std::vector<std::vector<Vec2>>& segments) {
 Renderer::Renderer()
     : redBirdTexture_(loadTexture("assets/red.png")),
       yellowBirdTexture_(loadTexture("assets/yellow.png")),
-      pigTexture_(loadTexture("assets/pig.png")) {}
+      pigTexture_(loadTexture("assets/pig.png")),
+      backgroundTexture_(loadTexture("assets/background_grassland.png")) {}
 
 void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferHeight) const {
     setupProjection(framebufferWidth, framebufferHeight);
 
     glClearColor(0.52f, 0.78f, 0.96f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    drawBackground(framebufferWidth, framebufferHeight, backgroundTexture_);
 
     drawBirdTrajectory(scene.getBirdTrajectorySegments());
 
@@ -269,10 +304,9 @@ void Renderer::render(const Scene& scene, int framebufferWidth, int framebufferH
             }
         } else {
             if (body.isStatic) {
-                glColor3f(0.25f, 0.55f, 0.25f);
-            } else {
-                glColor3f(0.7f, 0.5f, 0.3f);
+                continue;
             }
+            glColor3f(0.7f, 0.5f, 0.3f);
             drawBox(body.position, body.shape.halfExtents, body.angle);
         }
     }
