@@ -475,6 +475,7 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies,
     constexpr float kPositionCorrectionPercent = 0.2f;
     constexpr float kPositionSlop = 0.01f;
     constexpr float kWakeSpeedSq = 0.02f * 0.02f;
+    constexpr float kWakePenetration = 0.08f;
     constexpr float kBaumgarte = 0.08f;
     constexpr float kMaxBias = 2.0f;
 
@@ -517,11 +518,12 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies,
 
         const float speedSqA = lengthSquared(a.velocity) + a.angularVelocity * a.angularVelocity;
         const float speedSqB = lengthSquared(b.velocity) + b.angularVelocity * b.angularVelocity;
-        if (!a.isStatic && (contact.penetration > kPositionSlop || speedSqB > kWakeSpeedSq)) {
+        const bool deepPenetration = contact.penetration > kWakePenetration;
+        if (!a.isStatic && (deepPenetration || speedSqB > kWakeSpeedSq)) {
             a.isSleeping = false;
             a.sleepTimer = 0.0f;
         }
-        if (!b.isStatic && (contact.penetration > kPositionSlop || speedSqA > kWakeSpeedSq)) {
+        if (!b.isStatic && (deepPenetration || speedSqA > kWakeSpeedSq)) {
             b.isSleeping = false;
             b.sleepTimer = 0.0f;
         }

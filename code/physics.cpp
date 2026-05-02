@@ -149,7 +149,12 @@ void PhysicsSystem::updateSleepStates(std::vector<RigidBody2D>& bodies, float dt
         if (body.isStatic) {
             continue;
         }
-
+        if (body.customTag == static_cast<int>(BodyTag::Pig) &&
+            lengthSquared(body.velocity) < 0.01f * 0.01f &&
+            std::abs(body.angularVelocity) < 0.02f) {
+            body.velocity = Vec2{0.0f, 0.0f};
+            body.angularVelocity = 0.0f;
+        }
         const bool almostStill = lengthSquared(body.velocity) < linearThresholdSq &&
                                  std::abs(body.angularVelocity) < kSleepAngularSpeed;
 
