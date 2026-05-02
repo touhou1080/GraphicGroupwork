@@ -200,8 +200,8 @@ void buildFortressScene(std::vector<RigidBody2D>& bodies) {
 
     bodies.push_back(makePig(Vec2{6.20f, midBeamY + beamHalfHeight + 0.30f}));
 
-    addWoodBlock(bodies, 3.25f, -2.82f, 0.70f, 0.14f, 0.42f);
-    addWoodBlock(bodies, 9.10f, -2.82f, 0.70f, 0.14f, -0.42f);
+    //addWoodBlock(bodies, 3.25f, -2.82f, 0.70f, 0.14f, 0.42f);
+    //addWoodBlock(bodies, 9.10f, -2.82f, 0.70f, 0.14f, -0.42f);
 }
 
 void buildPyramidScene(std::vector<RigidBody2D>& bodies) {
