@@ -73,9 +73,7 @@ struct RigidBody2D {
     bool isSleeping = false;
     float sleepTimer = 0.0f;
 
-    // Independent timer maintained by Scene::pruneStaleBirds, ticking up while
-    // the body's linear speed stays below the (smaller) bird-disappearance
-    // threshold. Separate from sleepTimer because the two thresholds differ.
+    // Independent timer maintained by Scene::pruneStaleBirds
     float quietTimer = 0.0f;
 
     // Application-specific marker. Bird bodies stash their BirdType here so the

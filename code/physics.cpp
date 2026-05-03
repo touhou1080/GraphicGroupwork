@@ -76,10 +76,6 @@ PhysicsStepResult PhysicsSystem::step(std::vector<RigidBody2D>& bodies, float dt
         }
 
         result.activeBirdImpact = true;
-        // Collision detection runs before position integration, so using
-        // the current center can collapse the last trajectory segment to
-        // zero length. Project one step along the pre-collision velocity
-        // so the recorded endpoint stays on the bird-center path.
         result.activeBirdCenterAtImpact = bodies.front().position + bodies.front().velocity * dt;
         break;
     }

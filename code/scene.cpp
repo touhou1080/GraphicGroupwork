@@ -281,9 +281,6 @@ void Scene::nextBird() {
                      static_cast<int>(BirdType::Count);
     currentBird_ = static_cast<BirdType>(next);
 
-    // Re-skin the active bird (bodies[0]) in place — keep its position/velocity,
-    // just swap its restitution / friction / colour tag. Other bodies (parked
-    // older birds, bricks, ground) are not touched, so the scene is preserved.
     if (!bodies_.empty() && bodies_.front().shape.type == ShapeType::Circle) {
         applyBirdTypeProperties(bodies_.front(), currentBird_);
         bodies_.front().isSleeping = false;
@@ -292,12 +289,6 @@ void Scene::nextBird() {
 }
 
 bool Scene::pruneStaleBirds(float dt) {
-    // A bird is "done" if EITHER:
-    //   - Its linear speed has stayed below kQuietSpeed for kBirdLifetime
-    //     seconds (settled). The threshold is deliberately smaller than the
-    //     physics sleep threshold (0.06), so a bird only counts as quiet when
-    //     it is essentially frozen, not just rolling slowly.
-    //   - Its position has crossed the visible-world margin (flew off-screen).
     constexpr float kQuietSpeed = 0.05f;
     constexpr float kQuietSpeedSq = kQuietSpeed * kQuietSpeed;
     constexpr float kBirdLifetime = 1.0f;
@@ -335,11 +326,6 @@ bool Scene::pruneStaleBirds(float dt) {
         }
     }
 
-    // Active bird (bodies[0]): only consider it stale once it has been
-    // launched. Ready / Dragging keep the bird parked at the start with zero
-    // velocity, which would otherwise grow quietTimer and self-trigger.
-    // Replace in place rather than erase, because input.cpp expects bodies[0]
-    // to always be the player's bird.
     if (gameState_ == GameState::Launched && !bodies_.empty() &&
         bodies_.front().shape.type == ShapeType::Circle && !bodies_.front().isStatic) {
         RigidBody2D& bird = bodies_.front();

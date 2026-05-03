@@ -529,10 +529,7 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies,
         }
     }
 
-    // Pre-pass: compute the restitution velocity bias from the initial relative
-    // velocity at each contact point. Doing this once (not per iteration) is what
-    // makes "bouncy" bodies actually bounce — otherwise iteration 2 sees the
-    // post-impact separating velocity and reels the impulse back, killing the bounce.
+    // Pre-pass: compute the restitution velocity bias from the initial relative velocity at each contact point.
     constexpr float kRestitutionThreshold = 0.5f;
     for (SolverContact& contact : solverContacts) {
         const RigidBody2D& a = bodies[contact.bodyA];
