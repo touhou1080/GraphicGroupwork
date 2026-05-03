@@ -402,8 +402,6 @@ struct SolverContactPoint {
     float normalImpulse = 0.0f;
     float tangentImpulse = 0.0f;
     // Target separating speed (= -restitution * initial velAlongNormal, clamped to >= 0).
-    // Computed ONCE before the iteration loop using initial velocities so
-    // restitution does not get cancelled out in later iterations.
     float velocityBias = 0.0f;
 };
 
@@ -605,9 +603,7 @@ void resolveCollisions(std::vector<RigidBody2D>& bodies,
                         //bias = 0.15f * (contact.penetration - kPositionSlop);
                     }
 
-                    // Drive the contact's normal velocity toward the precomputed
-                    // separation target (cp.velocityBias >= 0). For a fresh impact
-                    // the target is +restitution * incomingSpeed; otherwise it's 0.
+                    // Drive the contact's normal velocity toward the precomputed separation target (cp.velocityBias >= 0). For a fresh impact the target is +restitution * incomingSpeed; otherwise it's 0.
                     float lambda = -(velAlongNormal - bias - cp.velocityBias) / normalMass;
                     const float oldImpulse = cp.normalImpulse;
                     cp.normalImpulse = std::max(oldImpulse + lambda, 0.0f);
